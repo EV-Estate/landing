@@ -2,6 +2,7 @@ import { cookieName } from "@evinvest/experiments";
 import { expect, test, type Page } from "@playwright/test";
 
 import { experiments } from "../shared/config/experiments";
+import { CABINET_PATH } from "../shared/config/site";
 
 // One visual-regression baseline per section of the site. `name` names the
 // screenshot file (__screenshots__/<name>.png); `selector` locates the section.
@@ -38,7 +39,6 @@ const SECTIONS = [
 ] as const;
 
 const tags = (on: readonly string[]) => on.map(viewport => `@${viewport}`);
-const isMobileProject = () => test.info().project.name === "mobile";
 
 // The hero scales its background with window.scrollY; pinning the scroll
 // position makes its zoom (and the header's blur-on-scroll state) deterministic.
@@ -197,30 +197,16 @@ for (const { name, selector, on } of SECTIONS) {
 
     await waitForMotionToSettle(page);
 
-    if (name === "header" && isMobileProject()) {
-      // Below `sm` the bar carries no account chip (it folds into the drawer),
-      // so the whole bar is deterministic and there is nothing to clip away.
-      // The desktop nav is `hidden` here, which is why the clip below cannot
-      // be reused: its right edge has no box.
+    if (name === "header") {
+      // The whole bar at both widths. Its cabinet entry is a static link
+      // SSR'd into the markup (application/layout/header-cta.tsx), not a
+      // network-served widget, so nothing in it depends on another service
+      // and there is nothing to clip away. The closed drawer is `fixed`, so
+      // it adds nothing to the header's own box.
       await expect(section).toHaveScreenshot(`${name}.png`);
-    } else if (name === "header") {
-      // The header CTA is the cabinet-served MFE account chip, present only
-      // when that service is reachable — clip at the nav's right edge so the
-      // baseline is independent of it.
-      const header = await section.boundingBox();
-      const nav = await page.locator("header nav").first().boundingBox();
-      if (!header || !nav) throw new Error("header/nav has no bounding box");
-      await expect(page).toHaveScreenshot(`${name}.png`, {
-        clip: {
-          x: header.x,
-          y: header.y,
-          width: nav.x + nav.width - header.x,
-          height: header.height,
-        },
-      });
     } else {
       // Fixed chrome overlays whatever sits at the viewport edges — the header
-      // (its MFE chip is network-dependent; it has its own test above), Next's
+      // (it has its own baseline above), Next's
       // dev indicator and the A/B dev panel — and whether it lands inside the
       // element depends on the scroll offset the capture ends on, which is not
       // stable across runs. Hide all three for the capture instead of masking:
@@ -261,13 +247,16 @@ test("- mismatch on: header-drawer", { tag: ["@mobile"] }, async ({ page }) => {
   await expect(page).toHaveScreenshot("header-drawer.png");
 });
 
-// The funnel's first step (issue #205): a signed-out reader must see a way into
-// the cabinet without scrolling or opening the menu. "Primary" is whichever of
-// the two entries the page ships — the header pair's `data-cta="open_account"`
-// (header-cta.tsx, the name CabinetEntryTracker reports) or the hero's own
-// cabinet link — so the assertion holds through either landing first. `href`
-// rather than an accessible name because the copy is translated and the
-// destination is the contract; the tracker keys on the same href.
+// The funnel's first step (EV-Main/site_conductor#205): a signed-out reader
+// must see a way into the cabinet without scrolling or opening the menu.
+// "Primary" is whichever of the two entries the page ships first — the
+// header's `data-cta="cabinet"` link (header-cta.tsx, the name
+// CabinetEntryTracker reports) or the hero's own link to the cabinet — so the
+// assertion holds through either. The drawer's copy of the header link is
+// `visibility: hidden` while closed, which the visible filter drops. Attribute
+// and `href` rather than an accessible name because the copy is translated
+// and the destination is the contract: both entries are hard links to
+// CABINET_PATH, which Traefik routes to the cabinet app on this host.
 for (const viewport of ["desktop", "mobile"] as const) {
   test(
     `- primary cabinet CTA sits inside the first ${viewport} viewport`,
@@ -278,10 +267,13 @@ for (const viewport of ["desktop", "mobile"] as const) {
       await waitForMotionToSettle(page);
 
       const cta = page
-        .locator('a[data-cta="open_account"], #hero a[href*="/cabinet/login"]')
+        .locator(
+          `header a[data-cta="cabinet"], #hero a[href="${CABINET_PATH}"]`
+        )
         .filter({ visible: true })
         .first();
       await expect(cta).toBeVisible();
+      await expect(cta).toHaveAttribute("href", CABINET_PATH);
       // `ratio: 1` — the whole button, not a sliver peeking above the fold.
       await expect(cta).toBeInViewport({ ratio: 1 });
     }
