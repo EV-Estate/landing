@@ -2,7 +2,7 @@ import type { MetadataRoute } from "next";
 import { CABINET_PATH, SITE } from "@/shared/config/site";
 
 // Static route — reads only build-time env, so it stays statically generated
-// (and cached) even though the page is dynamic via the layout's await cookies().
+// (and cached).
 export const dynamic = "force-static";
 
 // AI answer/citation + training crawlers the brand explicitly WANTS (owner chose

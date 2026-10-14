@@ -12,12 +12,6 @@ export interface HeaderMenuLabels {
   menu: string;
 }
 
-export const DEFAULT_MENU_LABELS: HeaderMenuLabels = {
-  open: "Open menu",
-  close: "Close menu",
-  menu: "Site menu",
-};
-
 /** The header's one entry into the cabinet: a hard same-host href and its label. */
 export interface HeaderCabinetLink {
   href: string;

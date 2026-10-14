@@ -35,9 +35,9 @@ export function HeroA({ locale }: { locale: Locale }) {
 // The hero's opening sequence, in beats: headline assembles (word stagger,
 // ~0.4s), then the sub-copy. The sub-copy's delay starts a little before the
 // headline finishes so the two overlap rather than march. The CTA row is *not*
-// a beat: it is painted from the first frame and only settles (#198) — a
-// control that fades in ~1s after the headline reads as drag and, at opacity 0,
-// is invisible to LCP.
+// a beat: it is painted from the first frame and only settles
+// (EV-Main/site_conductor#198) — a control that fades in ~1s after the headline
+// reads as drag and, at opacity 0, is invisible to LCP.
 const COPY_DELAY = 0.35;
 
 function HeroACtaRow({ locale }: { locale: Locale }) {

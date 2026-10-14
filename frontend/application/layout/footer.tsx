@@ -38,7 +38,8 @@ function FooterLink({
   );
 }
 
-// The 12-col footer grid (Figma: site_conductor › Footer) is the shared
+// The 12-col footer grid (Figma: `site_conductor › Footer`, named for the repo
+// this app moved out of) is the shared
 // @evinvest/uikit Footer; this app supplies the sitemap columns, the
 // newsletter form island, and the deployed-version line.
 export function Footer() {

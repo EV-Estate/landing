@@ -171,10 +171,10 @@ const nextConfig: NextConfig = {
     // tried, rewriting /ru/team to /en/ru/team (404) while /team still resolves
     // and hides the bug. `fallback` runs last, after dynamic routes have had
     // their chance, which is the semantics actually wanted. Verified on 16.2.9 in
-    // dev and a production build — see site_conductor docs/i18n-routing-spike.md.
+    // dev and a production build.
     //
     // Inlined rather than `localeRewrites()` from @evinvest/i18n/next — same
-    // reason as the Sentry exception above: this file is loaded as CJS, and the
+    // reason as the Sentry exception below: this file is loaded as CJS, and the
     // package is ESM-only, so requiring the subpath dies with
     // ERR_PACKAGE_PATH_NOT_EXPORTED. The helper is still the source of truth for
     // app-side code (localeStaticParams in app/[locale]/layout.tsx); only the
@@ -189,17 +189,17 @@ const nextConfig: NextConfig = {
     // the `Next-URL` request header (base-server `setVaryHeader`, our routes
     // are not interceptable), so the second pass recomputes the hash without
     // `Next-URL` and 307s to a hash the first pass will reject again — an
-    // endless 307 loop on every English soft navigation (site_conductor#229).
+    // endless 307 loop on every English soft navigation
+    // (EV-Main/site_conductor#229).
     // `experimental.validateRSCRequestHeaders`, on by default since 16.4, is
     // the CDN cache-poisoning guard and stays on.
     //
     // The lookahead is what keeps this from being the broken afterFiles rule
     // described above: a locale-prefixed path never matches, so `/ru/team`
     // still reaches [locale] as itself. The other excluded roots are API space,
-    // Next's own, and the paths other apps own: `/cabinet` (EV-Fund/invest on
-    // this host) and `/rea` (REA on evinvest.ltd) — neither is a page here, so
-    // they keep the fallback's 404 rather than being dressed up as English
-    // pages. `.+` leaves `/` to the fallback too.
+    // Next's own, and the path another app owns: `/cabinet` (EV-Fund/invest on
+    // this host) — not a page here, so it keeps the fallback's 404 rather than
+    // being dressed up as an English page. `.+` leaves `/` to the fallback too.
     // The locale list restates LOCALES from @evinvest/i18n (CJS boundary,
     // as above): a new locale must be added here or its pages 404.
     const unprefixed = [
@@ -209,7 +209,6 @@ const nextConfig: NextConfig = {
       "fr",
       "de",
       "cabinet",
-      "rea",
       "api",
       "_next",
     ].join("|");

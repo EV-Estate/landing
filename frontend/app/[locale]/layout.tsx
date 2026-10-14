@@ -54,7 +54,7 @@ export const generateStaticParams = () => localeStaticParams();
 // is ambiguous with this layout's own page — with `dynamicParams = false` the
 // segment is *declined* and the request falls through to the `fallback` rewrite
 // that resolves it as English. Without it, `/team` renders the homepage with
-// locale === "team". See site_conductor docs/i18n-routing-spike.md.
+// locale === "team".
 //
 // It is also why a catch-all `[locale]/[...rest]` cannot be the 404: to serve
 // one, that route needs `dynamicParams = true`, which is resolved per *route*
@@ -73,10 +73,8 @@ export default async function RootLayout({
 }) {
   const { locale } = await params;
   if (!isLocale(locale)) notFound();
-  // The document stays static so non-A/B routes (/team, /hiring, /contact, the
-  // status pages) can statically render. A/B pages opt into dynamic rendering
-  // where it's actually needed: each tested section awaits `getVariant`, which
-  // reads the `ab_*` cookie (next/headers) and dynamizes that route on its own.
+  // In production `getVariant` returns the control without reading a cookie,
+  // so every route stays static; only dev reads `ab_*`.
   // The 500 boundary is a Client Component by Next's rule, so its copy is
   // resolved here — where the locale is known — and carried down as ~6 strings
   // rather than shipping the catalogues to the browser.

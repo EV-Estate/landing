@@ -156,11 +156,9 @@ const leftAlone = [
   // Already locale-prefixed: must reach app/[locale] as itself.
   ...LOCALES.flatMap(locale => [`/${locale}`, `/${locale}/team`]),
   "/en/cabinet/x",
-  // Zones, API space and Next's own files keep their pre-16.4 path.
+  // The cabinet, API space and Next's own files keep their pre-16.4 path.
   "/cabinet",
   "/cabinet/x",
-  "/rea",
-  "/rea/x",
   "/api/x",
   "/api/auth/session",
   "/_next/static/chunks/x.js",

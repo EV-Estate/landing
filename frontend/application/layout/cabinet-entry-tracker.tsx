@@ -26,7 +26,7 @@ export function CabinetEntryTracker({
 
   // Capture phase: runs before the browser starts the hard navigation the link
   // triggers. Delivery across that navigation is posthog's
-  // pagehide flush — see the report on send_instantly in the lib.
+  // pagehide flush.
   const onClickCapture = (e: MouseEvent<HTMLDivElement>) => {
     const target = e.target instanceof Element ? e.target : null;
     const link = target?.closest<HTMLAnchorElement>("a[data-cta]");

@@ -9,8 +9,7 @@ ev_lib::settings! {
 	/// behave exactly like an absent variable.
 	///
 	/// `POSTHOG_KEY` / `POSTHOG_HOST` follow the org-canonical names fixed by
-	/// `ev_lib::settings::presets` (this backend previously read
-	/// `POSTHOG_API_KEY`).
+	/// `ev_lib::settings::presets`.
 	///
 	/// The `#[required_in("production")]` fields are the ones whose absence is a
 	/// *silent* no-op rather than a crash — mail that only gets logged, error

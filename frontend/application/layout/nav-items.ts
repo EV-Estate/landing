@@ -41,7 +41,7 @@ export const NAV_ITEMS: readonly NavEntry[] = [
   { label: t => t("nav.contact", "Contact"), href: "/contact" },
 ];
 
-// Footer sitemap columns (issue #34). Company = dedicated pages; Explore =
+// Footer sitemap columns (EV-Main/site_conductor#34). Company = dedicated pages; Explore =
 // homepage sections + research surfaces; Investors = the way into the cabinet
 // plus the reports. Crawlable internal links from every page, so each
 // destination is one hop from anywhere on the site.
@@ -89,7 +89,7 @@ export const FOOTER_NAV: readonly {
   },
 ];
 
-// The footer's legal row (issue #204): the three documents the cabinet's
+// The footer's legal row (EV-Main/site_conductor#204): the three documents the cabinet's
 // documents config will also point at. Same NavEntry shape so the footer
 // localises them with the sitemap columns and needs no second path builder.
 export const LEGAL_NAV: readonly NavEntry[] = [

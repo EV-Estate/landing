@@ -9,8 +9,9 @@ import {
 
 type Status = "idle" | "sending" | "sent" | "error";
 
-// Client island — the only interactive piece of the footer, split out so the
-// rest of the footer (and its sitemap links) stays a Server Component.
+// The footer's only stateful piece. The footer itself is already a client tree
+// (footer.tsx: `linkComponent` cannot cross the server→client boundary), so
+// this split is not a bundle boundary.
 export function NewsletterForm() {
   const t = useT();
   const [email, setEmail] = useState("");

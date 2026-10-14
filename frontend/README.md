@@ -11,7 +11,7 @@ is a separate app routed by Traefik (see [`PATTERNS.md` §9](./PATTERNS.md)).
 ```
 app/          routing + root layout (Server Components by default)
 views/        page composition (HomeView), agnostic of A/B
-features/     behaviour slices: analytics, ab-variant, investment-calculator
+features/     behaviour slices: analytics, ab-variant, error-monitoring, contact-message, job-application, publication-search
 entities/     domain data (team, …)
 shared/       app-agnostic ui/, lib/, config/, hooks/, mfe/ (microfrontend host)
 application/  styles/globals.css → imports @evinvest/uikit/styles/tokens.css
@@ -51,7 +51,7 @@ npm run i18n:check           # en generated from code + translation drift
 npm run redirects:check      # /en/* collapse and the English rewrite
 ```
 
-> The site calls only its own backend (vacancies / applications / contact)
+> The site calls only its own backend (vacancies / applications / contact / newsletter)
 > through the generated client in `shared/api` — there is no hub API client here.
 
 ## Microfrontends
@@ -88,7 +88,7 @@ shadow roots, and the global uikit tokens must cascade in.
 
 **Producing a microfrontend** (other repos — this app ships no producer SDK). The
 canonical, fuller recipe lives in the hub's
-[`docs/ARCHITECTURE.md` § Microfrontends](../../banking/docs/ARCHITECTURE.md); the
+[`docs/ARCHITECTURE.md` § Microfrontends](https://github.com/EV-Main/banking/blob/main/docs/ARCHITECTURE.md#microfrontends); the
 contract is shared with `cabinet`, so keep this in sync with it.
 
 - **React** — wrap a component as a custom element with
@@ -105,8 +105,8 @@ contract is shared with `cabinet`, so keep this in sync with it.
 ### Document remotes — `RemoteDocument`
 
 For remotes that are a self-contained **static HTML document** (the typst-built
-[whitepaper](./app/publications/whitepaper) and
-[publications](./app/publications)) rather than a custom-element
+[whitepaper](<./app/[locale]/publications/whitepaper>) and
+[publications](<./app/[locale]/publications>)) rather than a custom-element
 bundle. The document is addressed by URL (site-relative → read from `public/`;
 absolute → fetched, so a doc service can move to its own origin) and composed into
 the page natively, keeping the host chrome and scroll.

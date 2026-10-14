@@ -1,5 +1,5 @@
-// Single source of truth for A/B experiments — plain data, importable from the
-// proxy (nodejs runtime), Server Components, and Client Components alike.
+// Single source of truth for A/B experiments — plain data, importable from
+// Server Components and Client Components alike.
 //
 // The mechanics (cookie shape, weighted pick, control fallback, sticky
 // assignment) live in `@evinvest/experiments`; this file only declares the
@@ -18,7 +18,8 @@ export const experiments = {
   // a: "Invest in Vietnam / Through Institutional Vision"; b: "China+1 / Vietnam".
   hero_headline: { variants: ["a", "b"], weights: [0.5, 0.5] },
   // a: "Start investing" → cabinet as the primary, Explore secondary, the
-  // whitepaper a text link; b: the pre-#198 row (Explore primary, Whitepaper).
+  // whitepaper a text link; b: the row before EV-Main/site_conductor#198
+  // (Explore primary, Whitepaper).
   // The new row is listed first because production serves variants[0]: the
   // cabinet entry is the deliverable, the old row is the comparison arm.
   hero_cta: { variants: ["a", "b"], weights: [0.5, 0.5] },

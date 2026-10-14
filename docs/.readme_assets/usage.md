@@ -14,12 +14,14 @@ export them, so nothing here hardcodes a number.
 | `nix run .#gen-api` | regenerate `backend/openapi.json` + the TS client (run after any DTO/handler change; commit both) |
 | `nix run .#test` | frontend typecheck + i18n + Tailwind conflict gates |
 | `nix develop -c cargo test --workspace` | backend and domain unit tests |
+| `nix run .#pull-prod-db` | replace the local landing db with prod's (`PROD_DB=evinvest` before the move) |
 | `nix run .#publish` | bump latest remote `vX.Y.Z` tag (`-- major\|minor\|patch`) + push |
 
 Frontend runs pull docs and the REA bundle from checkouts next to
 `landing/` — `_estate/whitepaper/`, `blog/`, `_estate/real_estate_allocation/`,
-all optional. A missing checkout just warns: docs degrade to a PDF link, the
-portfolio section falls back to the in-repo render. For a live REA remote
+all optional. A missing checkout just warns: docs degrade to a PDF link; the
+portfolio section has no in-repo render — without REA's snapshots the home page
+throws (`loadDocHtml` on `public/mfe/portfolio.<locale>.html`). For a live REA remote
 instead of the baked bundle: run `nix run .#dev` in the
 `_estate/real_estate_allocation` checkout (→ :59079, verify with
 `nix run .#healthcheck` there).
@@ -31,5 +33,5 @@ Other EV surfaces compose at runtime through `frontend/shared/mfe`, never via
 and [`frontend/README.md`](../../frontend/README.md). The home portfolio section
 is `real_estate_allocation`'s custom element, served same-origin from `/mfe/`
 (baked into the image from `real_estate_allocation#embeds`, with one static
-snapshot per locale); `/whitepaper` and `/publications/[slug]` are static HTML
+snapshot per locale); `/publications/whitepaper` and `/publications/[slug]` are static HTML
 from the sibling typst repos.
