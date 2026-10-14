@@ -1,7 +1,7 @@
 {
   inputs = {
     v_flakes.url = "github:valeratrades/v_flakes?ref=v1.6";
-    ev_assets = { url = "github:ev-main/assets"; flake = false; };
+    ev_assets = { url = "github:EV-Main/assets"; flake = false; };
   };
   outputs = { self, v_flakes, ev_assets }:
     let
@@ -11,9 +11,11 @@
       # narHash, so they can never drift or fail a hash check — every build just
       # takes latest `main`. Costs `--impure`. Fetched over ssh (your key locally;
       # per-repo deploy keys on the release runner — see github.containerRelease).
-      real_estate_allocation = builtins.getFlake "git+ssh://git@github.com/ev-main/real_estate_allocation?ref=refs/heads/main";
-      blog = builtins.getFlake "git+ssh://git@github.com/ev-main/blog?ref=refs/heads/main";
-      whitepaper = builtins.getFlake "git+ssh://git@github.com/ev-main/whitepaper?ref=refs/heads/main";
+      # The owner spelling must match `deployKeys` below byte for byte: the CI
+      # key routing is a case-sensitive git `insteadOf` prefix on these URLs.
+      real_estate_allocation = builtins.getFlake "git+ssh://git@github.com/EV-Main/real_estate_allocation?ref=refs/heads/main";
+      blog = builtins.getFlake "git+ssh://git@github.com/EV-Main/blog?ref=refs/heads/main";
+      whitepaper = builtins.getFlake "git+ssh://git@github.com/EV-Main/whitepaper?ref=refs/heads/main";
     in
     flake-utils.lib.eachDefaultSystem (
       system:
@@ -30,17 +32,16 @@
         # Drops ~1.2 GB of dev tooling (rust-analyzer/docs/clippy/rustfmt/src) the
         # container build never touches. CI builds only the containers, so this keeps
         # the fat `rust` above out of the release closure entirely.
-        rustBuild = pkgs.rust-bin.selectLatestNightlyWith (toolchain: toolchain.minimal);
+        rustBuild = v_flakes.rs.build_nightly system;
         # v_flakes ships the treefmt hook; we extend it with the same `.#test`
-        # derivation (typecheck + Playwright visual regression). Kept on pre-push,
-        # not pre-commit — a full visual run per commit is too slow; flip `stages`
-        # to ["pre-commit"] if you want it on every commit.
+        # derivation (frontend typecheck + static gates). Kept on pre-push, not
+        # pre-commit, so a commit stays instant.
         preCommitBase = v_flakes.files.preCommit { inherit pkgs; };
         pre-commit-check = pre-commit-hooks.lib.${system}.run (preCommitBase // {
           hooks = preCommitBase.hooks // {
             test = {
               enable = true;
-              name = "nix run .#test (typecheck + visual regression)";
+              name = "nix run .#test (typecheck + static gates)";
               entry = "${runTestHook}/bin/run-test-hook";
               pass_filenames = false;
               stages = [ "pre-push" ];
@@ -65,23 +66,24 @@
             };
           };
         });
-        pname = "site_conductor";
+        pname = "landing";
         # ── ev_invest dev topology (single source of truth for ports) ───────
         # ONE shared postgres serves every sibling repo (banking/concierge mirror
-        # these values). Postgres database name == app name. Web UIs cluster on
-        # 5006x. CABINET_FRONTEND_PORT is banking's cabinet and REA_PORT is
-        # real_estate_allocation's dev server, referenced by CABINET_ZONE_URL /
-        # REA_ZONE_URL for the multi-zone mounts.
+        # these values). Postgres database name == app name. The landing ports sit
+        # next to site_conductor's 58843/58844 rather than on them, so the two can
+        # run side by side on one laptop. REA_PORT is real_estate_allocation's dev
+        # server, which the portfolio embed calls for its data.
+        frontendPort = 58845;
+        backendPort = 58846;
         ports = {
           POSTGRES_PORT = "5432";
-          SITE_CONDUCTOR_FRONTEND_PORT = "58843";
-          SITE_CONDUCTOR_BACKEND_PORT = "58844";
-          CABINET_FRONTEND_PORT = "50061";
+          LANDING_FRONTEND_PORT = toString frontendPort;
+          LANDING_BACKEND_PORT = toString backendPort;
           REA_PORT = "59079";
-          # Concierge's auth web surface — /api/auth/* + /api/callback/auth/*
-          # rewrite there (AUTH_WEB_URL); auth is shell-owned, zones never run OAuth.
-          CONCIERGE_WEB_PORT = "55671";
         };
+        # The one public origin: the site at `/`, the backend under `/api/v1` on
+        # the same host (Traefik PathPrefix), the cabinet under `/cabinet`.
+        siteUrl = "https://invest.evinvest.ltd";
         # DEFAULTS, not overrides: anything already set in the environment (or a
         # sourced `.env`) wins — machines with non-standard ports stay working.
         portEnv = pkgs.lib.concatStrings (pkgs.lib.mapAttrsToList (n: v: "export ${n}=\"\${${n}:-${v}}\"\n") ports);
@@ -109,17 +111,17 @@
         github = v_flakes.github {
           inherit pkgs pname rs;
           enable = true;
-          # Public repo → public Cachix (`ev-invest`); pull deps + push built paths.
-          # Pushing needs the CACHIX_AUTH_TOKEN secret. See v_flakes cache.nix.
-          cache = { cachix = "ev-invest"; };
+          # No `cache`: the default lean cache stays inside GitHub Actions. This
+          # repo is private and the frontend image bakes private content, so a
+          # public Cachix would publish both.
           lastSupportedVersion = "nightly-2026-05-12";
           # The frontend image bakes private inputs (REA `embeds`, blog, whitepaper),
           # so the release runner needs read access to each — one read-only deploy key
-          # per repo (provision: `git_ops init-deploy-key ev-main/<repo>`).
+          # per repo (provision: `git_ops init-deploy-key EV-Main/<repo>`).
           # refresh: private sources are getFlake "?ref=main" refs (off flake.lock); refresh
           # implies --impure AND --refresh so each release re-resolves them fresh (a warm nix
           # cache would otherwise bake a stale main). buildTiming: per-component build bar chart.
-          containerRelease = { registry = "ghcr.io/ev-main"; deployKeys = [ "ev-main/real_estate_allocation" "ev-main/blog" "ev-main/whitepaper" ]; refresh = true; buildTiming = true; };
+          containerRelease = { registry = "ghcr.io/ev-fund"; deployKeys = [ "EV-Main/real_estate_allocation" "EV-Main/blog" "EV-Main/whitepaper" ]; refresh = true; buildTiming = true; };
           gitignore.extra = ''
             ## generated by populate-docs; source imagery lives in frontend/assets/
             frontend/public/
@@ -141,6 +143,8 @@
             AGENTS.md
             CLAUDE.md
             .claude/
+            ## Nix build outputs beyond the base `result`
+            result-*
           '';
           jobs = {
             warnings.augment = [ "tokei" "code-duplication" ];
@@ -153,7 +157,7 @@
           defaults = true;
           lastSupportedVersion = "nightly-1.92";
           rootDir = ./.;
-          # No crate is published yet (the backend is a placeholder), so keep only the badge that always resolves.
+          # No crate is published, so keep only the badge that always resolves.
           badges = [ "msrv" ];
         };
         combined = v_flakes.utils.combine { inherit rust; modules = [ rs github readme ]; };
@@ -186,7 +190,7 @@
         };
         # ── frontend production image (Next.js standalone) ──────────────────
         frontendApp = pkgs.buildNpmPackage {
-          pname = "site_conductor-frontend";
+          pname = "landing-frontend";
           version = "1.0.0";
           src = ./frontend;
           # build node_modules straight from package-lock.json — no FOD hash to drift on release builds.
@@ -196,21 +200,14 @@
             NEXT_TELEMETRY_DISABLED = "1";
             NEXT_PUBLIC_BUILD_VERSION = buildVersion;
             NEXT_PUBLIC_BUILD_COMMIT = buildCommit;
-            NEXT_PUBLIC_SITE_URL = "https://evinvest.ltd";
+            NEXT_PUBLIC_SITE_URL = siteUrl;
             NEXT_PUBLIC_REA_URL = "https://rea.evinvest.ltd";
-            NEXT_PUBLIC_API_URL = "https://api.evinvest.ltd";
+            # An origin: the generated client's paths already carry `/api/v1`.
+            NEXT_PUBLIC_API_URL = siteUrl;
             # NEXT_PUBLIC_* are inlined at `next build`; the runtime copies in the
             # container contract below cover dynamic renders.
             NEXT_PUBLIC_POSTHOG_KEY = posthogKey;
             NEXT_PUBLIC_POSTHOG_HOST = posthogHost;
-            # Zone/auth topology must be present at `next build`: rewrites() resolves
-            # into routes-manifest.json here and is never re-evaluated at runtime, so
-            # runtime-only env cannot enable the asset/API/auth rewrites (the /rea and
-            # /cabinet HTML proxy handlers DO read env per request — the contract env
-            # below feeds those). In-cluster service DNS, non-secret.
-            CABINET_ZONE_URL = "http://ev-banking-cabinet:50061";
-            REA_ZONE_URL = "http://real-estate-allocation:59079";
-            AUTH_WEB_URL = "http://concierge:55671";
           };
           # call next build directly (npm run build chains stylelint, a CI gate that shouldn't fail the image).
           buildPhase = ''
@@ -257,10 +254,6 @@
             if [ -f "${blog.packages.${system}.default}/index.json" ]; then
               cp -f --no-preserve=mode "${blog.packages.${system}.default}/index.json" entities/publication/model/catalogue.json
             fi
-            # The AppShell (THE header — the only one; zones are chromeless and the
-            # proxy injects this over their HTML) is generated, never committed:
-            # skipping this step must fail `next build` at the manifest import.
-            node_modules/.bin/tsx scripts/build-shell.mts
             # The social card is re-rendered from SITE copy here; the committed
             # public/opengraph-image.png only exists so a bare checkout serves one.
             node_modules/.bin/tsx scripts/build-og.tsx
@@ -282,32 +275,35 @@
         };
 
         # Separate containers so each rolls out independently — a frontend deploy never touches the API. DATABASE_URL comes from the k8s Secret, not baked in.
+        # The backend runs its own migrations at boot (backend/migrations, embedded in the binary), so rolling out an image applies its schema.
         containerStd = v_flakes.container.implement {
           inherit pkgs pname;
           containers.backend = {
-            port = 58844;
+            port = backendPort;
             healthPath = "/api/v1/health";
             criticality = "high";
             entrypoint = [ "/bin/backend" ];
             contents = [ backendBin ];
-            imageEnv = [ "BIND_ADDR=0.0.0.0:58844" "APP_ENV=production" ];
-            # Transactional email. The code's defaults still say evinvest.vn, so
-            # these are not optional: unset ⇒ mail would be sent from — and link
-            # to — the wrong domain. SMTP_PASSWORD is the only real secret and
-            # arrives via the k8s Secret (`kubernetes-site-conductor-backend`);
-            # without it config.rs yields `smtp: None` and every send is a
-            # logged no-op, so mail silently stops rather than erroring.
+            imageEnv = [ "BIND_ADDR=0.0.0.0:${toString backendPort}" "APP_ENV=production" ];
+            # Transactional email, stated here rather than trusted to the code's
+            # defaults so the deploy contract alone says where mail comes from and
+            # links to. SMTP_PASSWORD is the only real secret and arrives via the
+            # k8s Secret (`kubernetes-landing-backend`), as do DATABASE_URL and
+            # SENTRY_DSN; production refuses to boot without them (exit 78).
             env = {
               SMTP_HOST = "smtp.gmail.com";
               SMTP_PORT = "587";
               SMTP_USERNAME = "admin@evinvest.ltd";
               MAIL_FROM = "EV Investment <admin@evinvest.ltd>";
               MAIL_TEAM = "admin@evinvest.ltd";
-              SITE_URL = "https://evinvest.ltd";
+              SITE_URL = siteUrl;
+              # The site calls the API same-origin; the list only keeps other
+              # sites' browsers off the public forms.
+              CORS_ALLOWED_ORIGINS = siteUrl;
             };
           };
           containers.frontend = {
-            port = 58843;
+            port = frontendPort;
             healthPath = "/";
             criticality = "high";
             # V8 sizes its heap without regard to the pod's 256Mi limit, so at low
@@ -317,25 +313,21 @@
             entrypoint = [ "${pkgs.nodejs}/bin/node" "--max-old-space-size=128" "${frontendApp}/server.js" ];
             contents = [ pkgs.nodejs frontendApp ];
             workingDir = "${frontendApp}";
-            imageEnv = [ "PORT=58843" "HOSTNAME=0.0.0.0" "NODE_ENV=production" ];
-            # Runtime halves of the zone mounts (the HTML proxy handlers read these
-            # per request); the build-time copies above own the baked rewrites.
+            imageEnv = [ "PORT=${toString frontendPort}" "HOSTNAME=0.0.0.0" "NODE_ENV=production" ];
             env = {
-              CABINET_ZONE_URL = "http://ev-banking-cabinet:50061";
-              REA_ZONE_URL = "http://real-estate-allocation:59079";
-              AUTH_WEB_URL = "http://concierge:55671";
               # config.ts reads env dynamically (process.env[name]), so nothing is
               # inlined server-side: every dynamic render (ISR revalidate, RSC nav,
               # cookied request) needs these at RUNTIME too — build-time env only
               # covers the prerender. Missing ⇒ module-eval throw ⇒ 500.
-              NEXT_PUBLIC_API_URL = "https://api.evinvest.ltd";
-              NEXT_PUBLIC_SITE_URL = "https://evinvest.ltd";
+              NEXT_PUBLIC_API_URL = siteUrl;
+              NEXT_PUBLIC_SITE_URL = siteUrl;
               NEXT_PUBLIC_REA_URL = "https://rea.evinvest.ltd";
               NEXT_PUBLIC_POSTHOG_KEY = posthogKey;
               NEXT_PUBLIC_POSTHOG_HOST = posthogHost;
               # Server Component fetches stay in-cluster instead of hairpinning
               # through the Cloudflare tunnel.
-              API_URL_INTERNAL = "http://site-conductor-backend:58844";
+              # Service name = k8s name of the backend container (v_flakes k8sName).
+              API_URL_INTERNAL = "http://landing-backend:${toString backendPort}";
             };
           };
         };
@@ -430,11 +422,9 @@
             cd "$repo/frontend"
             [ -d node_modules/next ] || npm install
             ${portEnv}
-            export NEXT_PUBLIC_API_URL="''${NEXT_PUBLIC_API_URL:-http://localhost:$SITE_CONDUCTOR_BACKEND_PORT}"
-            export CABINET_ZONE_URL="''${CABINET_ZONE_URL:-http://localhost:$CABINET_FRONTEND_PORT}"
-            export REA_ZONE_URL="''${REA_ZONE_URL:-http://localhost:$REA_PORT}"
-            export AUTH_WEB_URL="''${AUTH_WEB_URL:-http://localhost:$CONCIERGE_WEB_PORT}"
-            exec npm run dev -- --port "$SITE_CONDUCTOR_FRONTEND_PORT"
+            export NEXT_PUBLIC_API_URL="''${NEXT_PUBLIC_API_URL:-http://localhost:$LANDING_BACKEND_PORT}"
+            export NEXT_PUBLIC_REA_URL="''${NEXT_PUBLIC_REA_URL:-http://localhost:$REA_PORT}"
+            exec npm run dev -- --port "$LANDING_FRONTEND_PORT"
           '';
         };
 
@@ -458,8 +448,8 @@
             set +a
 
             ${portEnv}
-            export DATABASE_URL="''${DATABASE_URL:-postgres://postgres@localhost:$POSTGRES_PORT/site_conductor}"
-            export BIND_ADDR="''${BIND_ADDR:-0.0.0.0:$SITE_CONDUCTOR_BACKEND_PORT}"
+            export DATABASE_URL="''${DATABASE_URL:-postgres://postgres@localhost:$POSTGRES_PORT/landing}"
+            export BIND_ADDR="''${BIND_ADDR:-0.0.0.0:$LANDING_BACKEND_PORT}"
             export RUST_LOG="''${RUST_LOG:-info,backend=debug}"
             export APP_ENV="''${APP_ENV:-development}"
             exec cargo run -p backend
@@ -479,7 +469,7 @@
             state="''${XDG_STATE_HOME:-$HOME/.local/state}/ev_invest"
             export PGDATA="$state/pg/data"
             sockets="$state/pg/sockets"
-            dbs="''${PGDATABASES:-site_conductor}"
+            dbs="''${PGDATABASES:-landing}"
             mkdir -p "$sockets"
 
             # Serialize sibling repos racing to first-boot the shared cluster.
@@ -517,9 +507,10 @@
         };
 
         # ── dev refresh from prod ───────────────────────────────────────────
-        # `nix run .#pull-prod-db` → replace the local site_conductor database
-        # with prod's (the `evinvest` db on the prod host's Postgres, reached over
-        # tailscale — `RPI5_SSH=admin@<tailnet-ip>`, the default alias is the Pi).
+        # `nix run .#pull-prod-db` → replace the local landing database with
+        # prod's (`PROD_DB` on the prod host's Postgres, reached over tailscale —
+        # `RPI5_SSH=admin@<tailnet-ip>`, the default alias is the Pi). Until the
+        # rows move out of site_conductor's database, run with PROD_DB=evinvest.
         # Prod is authoritative; dev only pulls. No passwords on either end: the
         # remote dump goes through the unix socket as the `postgres` OS user
         # (peer auth; TCP loopback trusts only `banking_backup` since
@@ -532,11 +523,12 @@
             ${portEnv}
             ${runPostgres}/bin/run-postgres
             rpi5="''${RPI5_SSH:-rpi5-ts}"
-            echo "▶ pg_dump on $rpi5 → pg_restore into local site_conductor"
-            ssh "$rpi5" "sudo -u postgres pg_dump -Fc evinvest" \
+            prod_db="''${PROD_DB:-landing}"
+            echo "▶ pg_dump $prod_db on $rpi5 → pg_restore into local landing"
+            ssh "$rpi5" "sudo -u postgres pg_dump -Fc $prod_db" \
               | pg_restore --clean --if-exists --no-owner --no-privileges \
-                  -h 127.0.0.1 -p "$POSTGRES_PORT" -U postgres -d site_conductor
-            echo "✓ local site_conductor now mirrors prod"
+                  -h 127.0.0.1 -p "$POSTGRES_PORT" -U postgres -d landing
+            echo "✓ local landing now mirrors prod's $prod_db"
           '';
         };
 
@@ -576,9 +568,9 @@
             echo "▶ postgres (shared)"
             ${runPostgres}/bin/run-postgres
 
-            echo "▶ backend  (:$SITE_CONDUCTOR_BACKEND_PORT)"
+            echo "▶ backend  (:$LANDING_BACKEND_PORT)"
             ${runBackend}/bin/run-backend & pids+=($!)
-            echo "▶ frontend (:$SITE_CONDUCTOR_FRONTEND_PORT)"
+            echo "▶ frontend (:$LANDING_FRONTEND_PORT)"
             ${runFrontend}/bin/run-frontend & pids+=($!)
 
             wait
@@ -599,8 +591,10 @@
           '';
         };
 
-        # ── test suite: frontend typecheck + static gates + visual regression ──
-        # No Rust tests exist yet; add `cargo test --workspace` here when they do.
+        # ── test suite: frontend typecheck + static gates ───────────────────
+        # The Playwright visual suite is not ported from site_conductor yet (its
+        # baselines assume the old signed-in header; frontend/PATTERNS.md), so
+        # it is not wired here. Rust: `nix develop -c cargo test --workspace`.
         runTest = pkgs.writeShellApplication {
           name = "run-test";
           runtimeInputs = with pkgs; [ nodejs git ];
@@ -609,9 +603,6 @@
             ${populateDocs}/bin/populate-docs || true
             cd "$repo/frontend"
             [ -d node_modules/.bin ] || npm ci
-
-            # tsc resolves the (gitignored) generated manifest import.
-            npx tsx scripts/build-shell.mts
 
             echo "▶ typecheck (tsc --noEmit)"
             npm run check
@@ -622,28 +613,13 @@
             # `cn` panics on a conflict only in dev, and only once the offending
             # combination of branches is rendered. This reaches all of them.
             echo "▶ tailwind class conflicts (every cn() branch)"
-            npm run css:check
-
-            echo "▶ visual regression (playwright)"
-            ${portEnv}
-            export NEXT_PUBLIC_API_URL="''${NEXT_PUBLIC_API_URL:-http://localhost:$SITE_CONDUCTOR_BACKEND_PORT}"
-            # The nixpkgs browsers — npm-downloaded ones link libs absent on NixOS.
-            export PLAYWRIGHT_BROWSERS_PATH="${pkgs.playwright-driver.browsers}"
-            export PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD="1"
-            export PLAYWRIGHT_HOST_PLATFORM_OVERRIDE="nixos"
-            # The html reporter auto-opens the Expected/Actual/Diff view only when
-            # stdin is a TTY; under the pre-commit hook it is /dev/null, so hand the
-            # terminal back when there is one.
-            if (: < /dev/tty) 2>/dev/null; then
-              exec npm run test:visual < /dev/tty
-            fi
-            exec npm run test:visual
+            exec npm run css:check
           '';
         };
 
-        # pre-push wrapper: run the (slow) visual suite only when pushing a protected
-        # ref / tag, and skip even then if the pushed tip's tree matches the remote's
-        # (a squash/reword that leaves content identical can't change a screenshot).
+        # pre-push wrapper: run the test suite only when pushing a protected ref /
+        # tag, and skip even then if the pushed tip's tree matches the remote's
+        # (a squash/reword that leaves content identical can't change a result).
         # pre-commit sets REMOTE_BRANCH/FROM_REF/TO_REF on pre-push.
         runTestHook = pkgs.writeShellApplication {
           name = "run-test-hook";
@@ -652,7 +628,7 @@
             # Only gate the protected refs / releases; feature-branch pushes run nothing.
             case "''${PRE_COMMIT_REMOTE_BRANCH:-}" in
               refs/heads/main|refs/heads/dev|refs/heads/release|refs/tags/*) ;;
-              *) echo "not a protected ref / tag — skipping visual regression"; exit 0 ;;
+              *) echo "not a protected ref / tag — skipping the test suite"; exit 0 ;;
             esac
 
             from="''${PRE_COMMIT_FROM_REF:-}"
@@ -660,32 +636,11 @@
             # Missing refs (new branch / refs unavailable) → don't skip; run the suite.
             if [ -n "$from" ] && [ -n "$to" ] && git rev-parse -q --verify "$from^{tree}" >/dev/null 2>&1; then
               if [ "$(git rev-parse "$from^{tree}")" = "$(git rev-parse "$to^{tree}")" ]; then
-                echo "tip tree unchanged since remote — skipping visual regression"
+                echo "tip tree unchanged since remote — skipping the test suite"
                 exit 0
               fi
             fi
             exec ${runTest}/bin/run-test
-          '';
-        };
-
-        # ── accept new screenshots: `.#accept-test` (all) or with -- <names> ──
-        runAcceptTest = pkgs.writeShellApplication {
-          name = "accept-test";
-          runtimeInputs = with pkgs; [ nodejs git ];
-          text = ''
-            repo="$(git rev-parse --show-toplevel)"
-            cd "$repo/frontend"
-            [ -d node_modules/.bin ] || npm ci
-            ${portEnv}
-            export NEXT_PUBLIC_API_URL="''${NEXT_PUBLIC_API_URL:-http://localhost:$SITE_CONDUCTOR_BACKEND_PORT}"
-            export PLAYWRIGHT_BROWSERS_PATH="${pkgs.playwright-driver.browsers}"
-            export PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD="1"
-            export PLAYWRIGHT_HOST_PLATFORM_OVERRIDE="nixos"
-            if [ "$#" -eq 0 ]; then
-              exec npm run test:visual:update
-            fi
-            # playwright -g takes one regex; alternate the names so multiple match.
-            exec npm run test:visual:update -- -g "$(IFS='|'; echo "$*")"
           '';
         };
 
@@ -758,13 +713,12 @@
           in
           {
             dev = { program = "${runDev}/bin/run-dev"; about = "ensure the shared Postgres, then backend + frontend"; };
-            frontend = { program = "${runFrontend}/bin/run-frontend"; about = "Next.js marketing site (:$SITE_CONDUCTOR_FRONTEND_PORT)"; };
-            backend = { program = "${runBackend}/bin/run-backend"; about = "Axum API only (:$SITE_CONDUCTOR_BACKEND_PORT; ensures the shared DB)"; };
+            frontend = { program = "${runFrontend}/bin/run-frontend"; about = "Next.js landing (:${toString frontendPort})"; };
+            backend = { program = "${runBackend}/bin/run-backend"; about = "Axum API only (:${toString backendPort}; ensures the shared DB)"; };
             db = { program = "${runPostgres}/bin/run-postgres"; about = "ensure the SHARED ev_invest Postgres is up (+ this repo's databases)"; };
-            pull-prod-db = { program = "${runPullProdDb}/bin/pull-prod-db"; about = "replace the local site_conductor db with prod's (rpi5)"; };
+            pull-prod-db = { program = "${runPullProdDb}/bin/pull-prod-db"; about = "replace the local landing db with prod's (rpi5; PROD_DB=evinvest before the move)"; };
             gen-api = { program = "${runGenApi}/bin/run-gen-api"; about = "regenerate openapi.json + the TS client"; };
-            test = { program = "${runTest}/bin/run-test"; about = "frontend typecheck + Playwright visual regression"; };
-            accept-test = { program = "${runAcceptTest}/bin/accept-test"; about = "accept new screenshots (all, or `-- <names>`)"; };
+            test = { program = "${runTest}/bin/run-test"; about = "frontend typecheck + i18n + Tailwind conflict gates"; };
             publish = { program = "${runPublish}/bin/publish"; about = "bump latest remote vX.Y.Z tag (major|minor|patch [note]) + push"; };
             help = { program = "${runHelp}/bin/help"; about = "print this list"; };
           };

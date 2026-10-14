@@ -1,14 +1,15 @@
-# site_conductor
+# landing
 ![Minimum Supported Rust Version](https://img.shields.io/badge/nightly-1.92+-ab6000.svg)
 
-`site_conductor` is the public site and central shell for **EV Investment** — a
-real-estate advisory and investment fund specializing in premium coastal
-developments in Quy Nhon, Vietnam. It conducts the other EV web apps: each runs
-as a standalone service on its own subdomain, and this repo composes them into
-one client-facing surface (microfrontends — custom-element remotes and routed
-zones). A Next.js 16 (App Router) front end in [`frontend/`](frontend) lives
-alongside a [`backend/`](backend) placeholder to grow the site's own API into.
-The shared design system ships as the published `@evinvest/uikit`.
+`landing` is the public landing of the **EV Investment** fund at
+`invest.evinvest.ltd` — a real-estate advisory and investment fund specializing
+in premium coastal developments in Quy Nhon, Vietnam. A Next.js 16 (App Router)
+front end in [`frontend/`](frontend) sits next to an axum + Postgres API in
+[`backend/`](backend) (vacancies, applications, contact, newsletter) with its
+pure model in [`domain/`](domain). The investor cabinet on `/cabinet` of the
+same host is a separate app routed by Traefik. Moved from
+`EV-Main/site_conductor` at `ac600eb`. The shared design system ships as the
+published `@evinvest/uikit`.
 <!-- markdownlint-disable -->
 <details>
 <summary>
@@ -17,23 +18,11 @@ The shared design system ships as the published `@evinvest/uikit`.
 
 ## Deployment
 
-Target: `${vps_addr}` (Ubuntu 22.04, 2 vCPU, 2 GiB RAM, 30 GiB disk).
-Too weak to build — images built by CI and shipped.
-
-### Architecture
-
-```
-                   Caddy (:80, :443)
-                   /              \
-        evinvest.ltd          valeratrades.com
-        /    |    \                \
-  frontend  |   backend          some other
-  :58843    |   :58844           :61156
-  (node)    |
-          REA embed
-          :59079
-     (/nix/store binary, no container)
-```
+One host, three routes (Traefik, k3s): `invest.evinvest.ltd/` → `landing-frontend`
+(:58845), `invest.evinvest.ltd/api/v1` → `landing-backend` (:58846),
+`invest.evinvest.ltd/cabinet` → the invest cabinet. The backend owns the
+`landing` Postgres database and applies `backend/migrations` itself at boot, so
+rolling out an image applies its schema.
 
 ### Deploy
 
@@ -41,12 +30,13 @@ Too weak to build — images built by CI and shipped.
 nix run .#publish -- major|minor|patch
 ```
 
-That bumps the latest remote `vX.Y.Z` tag and pushes it. The tag triggers the
-release workflow (`containerRelease` in `flake.nix`): CI builds the `frontend`
-and `backend` OCI images — re-resolving the private inputs (REA embeds, blog,
-whitepaper) to fresh `main` — pushes them to `ghcr.io/ev-invest`, and Flux
-rolls them out (see the `gitops` repo). Frontend and backend are separate
-images, so each rolls out independently.
+That bumps the latest remote `vX.Y.Z` tag and pushes it — a tag is a deploy. The
+tag triggers the release workflow (`containerRelease` in `flake.nix`): CI builds
+the `frontend` and `backend` OCI images — re-resolving the private inputs (REA
+embeds, blog, whitepaper) to fresh `main` — pushes them to
+`ghcr.io/ev-fund/landing-{frontend,backend}`, and Flux rolls them out (see the
+`gitops` repo). Frontend and backend are separate images, so each rolls out
+independently.
 
 </details>
 <!-- markdownlint-restore -->
@@ -64,14 +54,14 @@ export them, so nothing here hardcodes a number.
 | `nix run .#dev` | full stack: shared postgres + backend + frontend |
 | `nix run .#frontend` | Next.js site only |
 | `nix run .#backend` | axum API only (ensures the shared postgres) |
-| `nix run .#db` | ensure the shared ev_invest postgres is up (+ this repo's `site_conductor` db) |
+| `nix run .#db` | ensure the shared ev_invest postgres is up (+ this repo's `landing` db) |
 | `nix run .#gen-api` | regenerate `backend/openapi.json` + the TS client (run after any DTO/handler change; commit both) |
-| `nix run .#test` | frontend typecheck + Playwright visual regression |
-| `nix run .#accept-test` | accept new screenshots (all, or `-- <names>`) |
+| `nix run .#test` | frontend typecheck + i18n + Tailwind conflict gates |
+| `nix develop -c cargo test --workspace` | backend and domain unit tests |
 | `nix run .#publish` | bump latest remote `vX.Y.Z` tag (`-- major\|minor\|patch`) + push |
 
 Frontend runs pull docs and the REA bundle from checkouts next to
-`site_conductor/` — `_estate/whitepaper/`, `blog/`, `_estate/real_estate_allocation/`,
+`landing/` — `_estate/whitepaper/`, `blog/`, `_estate/real_estate_allocation/`,
 all optional. A missing checkout just warns: docs degrade to a PDF link, the
 portfolio section falls back to the in-repo render. For a live REA remote
 instead of the baked bundle: run `nix run .#dev` in the
@@ -82,17 +72,11 @@ instead of the baked bundle: run `nix run .#dev` in the
 
 Other EV surfaces compose at runtime through `frontend/shared/mfe`, never via
 `<iframe>`. Full reference: [`frontend/PATTERNS.md` §8](./frontend/PATTERNS.md)
-and [`frontend/README.md`](./frontend/README.md).
-
-- **Element remotes (`RemoteElement`)** — the home "Premium Asset Portfolio"
-  section is `real_estate_allocation`'s self-registering custom element
-  `<mfe-real-estate-overview>`, mounted in light DOM and resolved from
-  `frontend/mfe-registry.json`. `scriptUrl`s run third-party JS in our origin —
-  treat the registry as code.
-- **Document remotes (`RemoteDocument`)** — `/whitepaper` and `/blogs/[slug]`
-  are static HTML from the sibling typst repos. Blog injects into light DOM
-  (SSR'd, host-styled); whitepaper mounts in a shadow root (ships its own CSS).
-  Unloadable doc → PDF-link fallback.
+and [`frontend/README.md`](./frontend/README.md). The home portfolio section
+is `real_estate_allocation`'s custom element, served same-origin from `/mfe/`
+(baked into the image from `real_estate_allocation#embeds`, with one static
+snapshot per locale); `/whitepaper` and `/publications/[slug]` are static HTML
+from the sibling typst repos.
 
 
 

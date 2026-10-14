@@ -70,15 +70,15 @@
     "ev_assets": {
       "flake": false,
       "locked": {
-        "lastModified": 1785682224,
-        "narHash": "sha256-V5JvjPScHRMXlUr2KuCZk1pRSVwvYEgEJqdEHlwXLQU=",
-        "owner": "ev-main",
+        "lastModified": 1791583539,
+        "narHash": "sha256-DroE+8Qa0MjiE3Y/8JAZr5NnmwfWmeBvFF+fvUuucN8=",
+        "owner": "EV-Main",
         "repo": "assets",
-        "rev": "59c8dce72116b8bc6157b72ea0e2746473bc384b",
+        "rev": "2f3998b4c6803e073200052a565aa1f82a1f9fc6",
         "type": "github"
       },
       "original": {
-        "owner": "ev-main",
+        "owner": "EV-Main",
         "repo": "assets",
         "type": "github"
       }
