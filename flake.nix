@@ -34,14 +34,15 @@
         # the fat `rust` above out of the release closure entirely.
         rustBuild = v_flakes.rs.build_nightly system;
         # v_flakes ships the treefmt hook; we extend it with the same `.#test`
-        # derivation (frontend typecheck + static gates). Kept on pre-push, not
-        # pre-commit, so a commit stays instant.
+        # derivation (typecheck + static gates + Playwright visual regression).
+        # Kept on pre-push, not pre-commit — a full visual run per commit is too
+        # slow; flip `stages` to ["pre-commit"] if you want it on every commit.
         preCommitBase = v_flakes.files.preCommit { inherit pkgs; };
         pre-commit-check = pre-commit-hooks.lib.${system}.run (preCommitBase // {
           hooks = preCommitBase.hooks // {
             test = {
               enable = true;
-              name = "nix run .#test (typecheck + static gates)";
+              name = "nix run .#test (typecheck + static gates + visual regression)";
               entry = "${runTestHook}/bin/run-test-hook";
               pass_filenames = false;
               stages = [ "pre-push" ];
@@ -343,8 +344,9 @@
           runtimeInputs = with pkgs; [ git nix coreutils flock ];
           text = ''
             repo="$(git rev-parse --show-toplevel)"
-            # shellHook, run-frontend and run-test all invoke this; two instances
-            # racing in public/ mid rm/cp swap fail with EEXIST/EACCES — serialize.
+            # shellHook, run-frontend, run-test and accept-test all invoke this; two
+            # instances racing in public/ mid rm/cp swap fail with EEXIST/EACCES —
+            # serialize.
             exec 9>"$repo/.git/populate-docs.lock"
             flock 9
             pub="$repo/frontend/public"
@@ -591,10 +593,8 @@
           '';
         };
 
-        # ── test suite: frontend typecheck + static gates ───────────────────
-        # The Playwright visual suite is not ported from site_conductor yet (its
-        # baselines assume the old signed-in header; frontend/PATTERNS.md), so
-        # it is not wired here. Rust: `nix develop -c cargo test --workspace`.
+        # ── test suite: frontend typecheck + static gates + visual regression ──
+        # Rust is not in here: `nix develop -c cargo test --workspace`.
         runTest = pkgs.writeShellApplication {
           name = "run-test";
           runtimeInputs = with pkgs; [ nodejs git ];
@@ -613,7 +613,23 @@
             # `cn` panics on a conflict only in dev, and only once the offending
             # combination of branches is rendered. This reaches all of them.
             echo "▶ tailwind class conflicts (every cn() branch)"
-            exec npm run css:check
+            npm run css:check
+
+            echo "▶ visual regression (playwright)"
+            ${portEnv}
+            export NEXT_PUBLIC_API_URL="''${NEXT_PUBLIC_API_URL:-http://localhost:$LANDING_BACKEND_PORT}"
+            export NEXT_PUBLIC_REA_URL="''${NEXT_PUBLIC_REA_URL:-http://localhost:$REA_PORT}"
+            # The nixpkgs browsers — npm-downloaded ones link libs absent on NixOS.
+            export PLAYWRIGHT_BROWSERS_PATH="${pkgs.playwright-driver.browsers}"
+            export PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD="1"
+            export PLAYWRIGHT_HOST_PLATFORM_OVERRIDE="nixos"
+            # The html reporter auto-opens the Expected/Actual/Diff view only when
+            # stdin is a TTY; under the pre-commit hook it is /dev/null, so hand the
+            # terminal back when there is one.
+            if (: < /dev/tty) 2>/dev/null; then
+              exec npm run test:visual < /dev/tty
+            fi
+            exec npm run test:visual
           '';
         };
 
@@ -641,6 +657,31 @@
               fi
             fi
             exec ${runTest}/bin/run-test
+          '';
+        };
+
+        # ── accept new screenshots: `.#accept-test` (all) or with -- <names> ──
+        runAcceptTest = pkgs.writeShellApplication {
+          name = "accept-test";
+          runtimeInputs = with pkgs; [ nodejs git ];
+          text = ''
+            repo="$(git rev-parse --show-toplevel)"
+            # public/ is gitignored and only populate-docs fills it; without this a
+            # fresh checkout would capture baselines with every image missing.
+            ${populateDocs}/bin/populate-docs || true
+            cd "$repo/frontend"
+            [ -d node_modules/.bin ] || npm ci
+            ${portEnv}
+            export NEXT_PUBLIC_API_URL="''${NEXT_PUBLIC_API_URL:-http://localhost:$LANDING_BACKEND_PORT}"
+            export NEXT_PUBLIC_REA_URL="''${NEXT_PUBLIC_REA_URL:-http://localhost:$REA_PORT}"
+            export PLAYWRIGHT_BROWSERS_PATH="${pkgs.playwright-driver.browsers}"
+            export PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD="1"
+            export PLAYWRIGHT_HOST_PLATFORM_OVERRIDE="nixos"
+            if [ "$#" -eq 0 ]; then
+              exec npm run test:visual:update
+            fi
+            # playwright -g takes one regex; alternate the names so multiple match.
+            exec npm run test:visual:update -- -g "$(IFS='|'; echo "$*")"
           '';
         };
 
@@ -718,7 +759,8 @@
             db = { program = "${runPostgres}/bin/run-postgres"; about = "ensure the SHARED ev_invest Postgres is up (+ this repo's databases)"; };
             pull-prod-db = { program = "${runPullProdDb}/bin/pull-prod-db"; about = "replace the local landing db with prod's (rpi5; PROD_DB=evinvest before the move)"; };
             gen-api = { program = "${runGenApi}/bin/run-gen-api"; about = "regenerate openapi.json + the TS client"; };
-            test = { program = "${runTest}/bin/run-test"; about = "frontend typecheck + i18n + Tailwind conflict gates"; };
+            test = { program = "${runTest}/bin/run-test"; about = "typecheck + static gates + Playwright visual regression"; };
+            accept-test = { program = "${runAcceptTest}/bin/accept-test"; about = "accept new screenshots (all, or `-- <names>`)"; };
             publish = { program = "${runPublish}/bin/publish"; about = "bump latest remote vX.Y.Z tag (major|minor|patch [note]) + push"; };
             help = { program = "${runHelp}/bin/help"; about = "print this list"; };
           };
