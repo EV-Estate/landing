@@ -1,0 +1,4 @@
+.claude/
+# Filled by the build (REA embed, publications, whitepaper, assets copy); the
+# committed OG fallback is force-added.
+frontend/public/
