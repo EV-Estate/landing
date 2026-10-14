@@ -15,6 +15,8 @@
     "lint:css": "stylelint \"application/styles/**/*.css\"",
     "css:check": "tsx scripts/css-conflict-check.mts",
     "format": "prettier --write .",
+    "test:visual": "playwright test",
+    "test:visual:update": "playwright test --update-snapshots",
     "i18n:extract": "evinvest-i18n-extract --exclude public,assets,messages,tests,test-results,playwright-report,generated",
     "i18n:check": "evinvest-i18n-check --exclude public,assets,messages,tests,test-results,playwright-report,generated",
     "redirects:check": "tsx scripts/redirect-check.mts"
