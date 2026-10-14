@@ -54,28 +54,47 @@ npm run redirects:check      # /en/* collapse and the English rewrite
 > The site calls only its own backend (vacancies / applications / contact / newsletter)
 > through the generated client in `shared/api` — there is no hub API client here.
 
-### Visual regression — not wired yet
+### Visual regression
 
-`playwright.config.ts` and `tests/` (section screenshots, the first-viewport
-cabinet CTA, the Russian portfolio) are imported verbatim from
-`site_conductor@ac600eb` and do **not** run in this repo yet: the config still
-reads the old port variable, the header test and the cabinet-CTA test still
-target the removed account chip and `/cabinet/login`, the committed baselines
-predate the header rewrite, and neither `nix run .#test`
-nor CI invokes Playwright. Until that lands, `npm run check` only typechecks
-them.
+`tests/sections.spec.ts` screenshots each home-page section (desktop and
+mobile, plus the open mobile drawer), checks the first-viewport cabinet CTA and
+the Russian portfolio. Baselines live in `tests/__screenshots__/`.
 
-Baselines are Linux renders (the flake pins nixpkgs' Chromium; macOS has none),
-so they are never captured on a Mac. The intended refresh, as in
-site_conductor: a CI job renders them and uploads a `visual-snapshots`
-artifact, then
+```sh
+nix run .#test                      # check, i18n:check, css:check, then the suite against the baselines
+nix run .#accept-test               # re-capture every baseline
+nix run .#accept-test -- hero team  # re-capture only tests whose title matches a name
+```
+
+Linux only. The flake pins nixpkgs' Chromium, and a macOS render does not match
+the committed Linux pixels, so baselines are never captured on a Mac. Known
+limit: on darwin the dev shell's `PLAYWRIGHT_HOST_PLATFORM_OVERRIDE=nixos` makes
+`tests/global-setup.ts` look for `chrome-linux64`; a local run needs
+`unset PLAYWRIGHT_HOST_PLATFORM_OVERRIDE` first, and its diffs are not
+meaningful.
+
+CI: [`visual-baselines.yml`](../.github/workflows/visual-baselines.yml) runs on
+PRs touching `frontend/`, `flake.*` or itself. The gate step runs
+`nix run .#test` and keeps its expected/actual/diff images as the
+`visual-diffs` artifact; the render step runs `nix run .#accept-test` and
+uploads the fresh PNGs as `visual-snapshots`, even when the gate is red. To
+refresh the baselines from a run, download them and look at every changed PNG
+(and the run's `visual-diffs`) before committing — the artifact is what the
+branch renders, not proof that the render is right:
 
 ```sh
 gh run download <run-id> -R EV-Fund/landing -n visual-snapshots -D frontend/tests/__screenshots__
+git add frontend/tests/__screenshots__
+git commit -m 'test(visual): refresh baselines (run <run-id>)'
 ```
 
-and commit after looking at the diffs. That job needs the REA deploy key (the
-home page cannot render without REA's per-locale snapshots).
+Status: the committed baselines are still the ones from `site_conductor@ac600eb`
+and are stale — `header.png`, `mobile/header.png` and `mobile/header-drawer.png`
+predate the header rewrite, and `cabinet-tour.png` / `mobile/cabinet-tour.png`
+may too. Expect the gate to be red until they are refreshed from a CI run. The
+job itself cannot pass until the repo has the `DEPLOY_KEY_REAL_ESTATE_ALLOCATION`
+secret (the home page cannot render without REA's per-locale snapshots) and
+`CACHIX_AUTH_TOKEN`.
 
 ## Environment
 

@@ -347,8 +347,7 @@ Two traps live there:
 
 ### Visual tests
 
-Not ported from site_conductor yet (its `tests/sections.spec.ts` and baselines
-assume the old signed-in header). The suite there waits for opacity **and** for `document.getAnimations()`
+`tests/sections.spec.ts` waits for opacity **and** for `document.getAnimations()`
 to have nothing one-shot still running — Playwright's `animations: "disabled"`
 only freezes CSS animations, and `motion` drives these through the WAAPI. Adding
 a reveal to a section needs no test change; adding a *looping* decoration does
