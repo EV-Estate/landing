@@ -20,8 +20,8 @@ const commit = config.public.buildCommit || version;
 // pattern here.
 const HardHrefs = createContext<ReadonlySet<string>>(new Set());
 
-// Cross-zone targets are full document loads (PATTERNS §9); everything else
-// keeps `next/link`'s prefetch and soft navigation.
+// Targets owned by another app on this host (the cabinet) are full document
+// loads; everything else keeps `next/link`'s prefetch and soft navigation.
 function FooterLink({
   href,
   ...props
@@ -95,7 +95,7 @@ export function Footer() {
         linkComponent={FooterLink}
         newsletter={<NewsletterForm />}
         version={version}
-        commitHref={`https://github.com/ev-main/site_conductor/commit/${commit}`}
+        commitHref={`https://github.com/EV-Fund/landing/commit/${commit}`}
       >
         <BuildVersionLog />
       </BrandFooter>

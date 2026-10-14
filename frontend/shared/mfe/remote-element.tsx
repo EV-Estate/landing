@@ -5,8 +5,8 @@
 // attribute/property quirks for any framework's element). Light DOM only.
 //
 // Trust boundary: scriptUrl runs third-party JS in the host origin with no
-// sandbox. It's operator-controlled via the in-repo registry — treat registry edits
-// as code; add an origin allowlist if the registry ever becomes user-sourced.
+// sandbox. It's operator-controlled (an in-repo constant at the call site) — treat
+// it as code; add an origin allowlist if it ever becomes user-sourced.
 
 import { useEffect, useRef, type ReactNode } from "react";
 

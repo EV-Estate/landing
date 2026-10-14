@@ -1,8 +1,7 @@
 // The bar itself: brand lockup, desktop nav, and the actions cluster that
 // carries the CTA and the below-`lg` menu toggle. Styling reacts to
-// `data-scrolled` / `data-zone` on the header root through
-// `group-data-[...]/header:` variants — no React state, no hydration, since
-// this markup is also stringified into the zone shell (scripts/build-shell.mts).
+// `data-scrolled` on the header root through `group-data-[...]/header:`
+// variants — no React state (header-behavior.tsx sets the attribute).
 // `backdrop-blur` belongs on this inner div and never on the root: a
 // backdrop-filtered root would become the containing block for the drawer and
 // scrim's `fixed` boxes and clamp them to the bar.
@@ -28,8 +27,8 @@ export function HeaderBar({
   menuLabels,
 }: HeaderBarProps) {
   return (
-    <div className="border-b border-transparent bg-transparent py-6 transition-all duration-500 group-data-[scrolled]/header:border-ink/10 group-data-[scrolled]/header:bg-background/90 group-data-[scrolled]/header:py-4 group-data-[scrolled]/header:backdrop-blur-md group-data-[zone=cabinet]/header:border-ink/10 group-data-[zone=cabinet]/header:bg-background group-data-[zone=cabinet]/header:h-[calc(5.5rem+1px)] group-data-[zone=cabinet]/header:py-0">
-      <Container className="flex justify-between lg:grid lg:grid-cols-[1fr_auto_1fr] h-full items-center gap-4 group-data-[zone=cabinet]/header:max-w-none group-data-[zone=cabinet]/header:pl-[18px] group-data-[zone=cabinet]/header:pr-8">
+    <div className="border-b border-transparent bg-transparent py-6 transition-all duration-500 group-data-[scrolled]/header:border-ink/10 group-data-[scrolled]/header:bg-background/90 group-data-[scrolled]/header:py-4 group-data-[scrolled]/header:backdrop-blur-md">
+      <Container className="flex justify-between lg:grid lg:grid-cols-[1fr_auto_1fr] h-full items-center gap-4">
         <L
           href={homeHref}
           className="flex items-center gap-3"
@@ -37,10 +36,10 @@ export function HeaderBar({
           aria-label={homeLabel}
         >
           <Logo className="h-10 w-10 text-white" />
-          {/* Mark only below `sm`: the wordmark and the signed-out primary
-              (header-cta.tsx) cannot share a 320px bar — measured, the pair
-              overlapped the burger by ~60px in every locale. The mark still
-              carries the accessible name via the link's aria-label. */}
+          {/* Mark only below `sm`: the wordmark and the cabinet link
+              (header-cta.tsx) cannot share a 320px bar beside the burger. The
+              mark still carries the accessible name via the link's
+              aria-label. */}
           <div className="hidden flex-col sm:flex">
             <span className="font-serif-display text-lg font-bold tracking-wider text-white">
               EV INVESTMENT
@@ -68,9 +67,9 @@ export function HeaderBar({
 
         {/* Spans the rest of the row (flex-1 below `lg`, the whole third
             column above it) and packs its content to the end, so its own box
-            never moves: the signed-out pair leaving on sign-in used to drag
-            the box's left edge 150px right, which counts as a layout shift
-            even though the burger stayed where it was. */}
+            never moves when route-owned actions (HeaderActions) come and
+            go — a moving edge counts as a layout shift even though the
+            burger stays put. */}
         <div
           data-slot="header-actions"
           className="flex flex-1 items-center justify-end gap-3 lg:justify-self-stretch"

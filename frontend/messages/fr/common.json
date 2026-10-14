@@ -175,10 +175,6 @@
     "en": "Field Notes & Research",
     "t": "Notes de terrain & Recherche"
   },
-  "footer.finishVerification": {
-    "en": "Finish verification",
-    "t": "Vérifier l'identité"
-  },
   "footer.investors": {
     "en": "Investors",
     "t": "Investisseurs"
@@ -243,10 +239,6 @@
     "en": "Quy Nhon Head Office",
     "t": "Siège de Quy Nhon"
   },
-  "footer.openAccount": {
-    "en": "Open an account",
-    "t": "Ouvrir un compte"
-  },
   "footer.reports": {
     "en": "Reports",
     "t": "Rapports"
@@ -287,21 +279,9 @@
     "en": "Something went wrong. Please try again.",
     "t": "Une erreur est survenue. Veuillez réessayer."
   },
-  "header.cabinet": {
-    "en": "Cabinet",
-    "t": "Mon espace"
-  },
-  "header.openAccount": {
-    "en": "Open an account",
-    "t": "Ouvrir un compte"
-  },
-  "header.signOut": {
-    "en": "Sign out",
-    "t": "Se déconnecter"
-  },
-  "header.signOutFailed": {
-    "en": "Couldn't sign you out. Please try again.",
-    "t": "Impossible de vous déconnecter. Veuillez réessayer."
+  "header.openCabinet": {
+    "en": "Open the cabinet",
+    "t": "Ouvrir mon espace"
   },
   "hiring.board.allRoles": {
     "en": "All roles",
@@ -1514,13 +1494,5 @@
   "whitepaper.title": {
     "en": "EV Investment Whitepaper",
     "t": "Livre blanc EV Investment"
-  },
-  "zone.failed": {
-    "en": "This page did not finish loading.",
-    "t": "Cette page ne s'est pas chargée entièrement."
-  },
-  "zone.reload": {
-    "en": "Reload",
-    "t": "Recharger"
   }
 }

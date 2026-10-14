@@ -3,9 +3,9 @@
 import Link from "next/link";
 import { ArrowRight, FileText } from "lucide-react";
 import { Button } from "@evinvest/uikit";
-import { localePath } from "@evinvest/i18n";
 import { useLocale, useT } from "@evinvest/i18n/react";
 import { useExperimentEvent } from "@/features/ab-variant";
+import { CABINET_PATH } from "@/shared/config/site";
 import { PRIMARY, SECONDARY, SIZE, TEXT_LINK, type HeroCtaAlign } from "./row";
 
 // Emitted as `hero_cta_clicked`: the tracker prefixes the experiment key, so
@@ -13,19 +13,12 @@ import { PRIMARY, SECONDARY, SIZE, TEXT_LINK, type HeroCtaAlign } from "./row";
 // under the `hero` tracker. Renaming would fork the funnel dashboard.
 const ACTION = "clicked";
 
-// The login page renders its signup state only under `?intent=signup`
-// (banking #391); a bare /cabinet bounces a visitor to the "Welcome back"
-// login intent. The cabinet's proxy sends signed-in users away from /login, so
-// the link is right in both states. `localePath` only prefixes, so the query
-// survives it.
-const SIGNUP = "/cabinet/login?intent=signup";
-
 /**
  * Client island — arm `a` of `hero_cta`: "Start investing" into the cabinet as
  * the primary, "Explore Assets" demoted to secondary, the whitepaper a text
  * link.
  *
- * The cabinet is a routed zone (PATTERNS §9), so the primary is a hard `<a>`
+ * The cabinet is another app on this host, so the primary is a hard `<a>`
  * — `Button href`, never `next/link`. Nothing in the row is `asChild`, so the
  * two-sibling hydration trap (PATTERNS §7) cannot apply.
  */
@@ -41,7 +34,7 @@ export function CabinetFirstCta({ align }: { align: HeroCtaAlign }) {
       className={`flex flex-wrap items-center gap-4 ${centred ? "justify-center" : ""}`}
     >
       <Button
-        href={localePath(locale, SIGNUP)}
+        href={CABINET_PATH}
         size={SIZE}
         className={PRIMARY}
         onClick={() => track(ACTION, { cta: "open_cabinet", ...common })}

@@ -1,11 +1,11 @@
 "use client";
 
 import { ArrowRight } from "lucide-react";
-import { localePath } from "@evinvest/i18n";
 import { useLocale, useT } from "@evinvest/i18n/react";
 import { Button } from "@evinvest/uikit";
 
 import { useAnalytics } from "@/features/analytics";
+import { CABINET_PATH } from "@/shared/config/site";
 
 // The tour runs no experiment, so the funnel schema's `variant` is the control
 // arm — the same convention as the research footer.
@@ -21,7 +21,7 @@ const CABINET_TOUR_VARIANT = "control";
  * cabinet itself. That bounce is the door.
  *
  * A hard link (`Button href` renders a plain `<a>`), never `next/link`: the
- * cabinet is a separate document behind a route-handler proxy (PATTERNS §9).
+ * cabinet is a separate app on this host.
  */
 export function CabinetTourCta() {
   const t = useT();
@@ -31,7 +31,7 @@ export function CabinetTourCta() {
   return (
     <Button
       variant="outline"
-      href={localePath(locale, "/cabinet")}
+      href={CABINET_PATH}
       size="lg"
       className="border-border bg-transparent text-ink shadow-none hover:bg-ink hover:text-brand transition-colors font-mono-tech text-xs tracking-widest uppercase rounded-none outline-none focus-visible:ring-2 focus-visible:ring-ring"
       onClick={() =>

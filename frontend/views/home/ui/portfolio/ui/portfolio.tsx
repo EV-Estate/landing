@@ -2,8 +2,17 @@ import type { Locale } from "@evinvest/i18n";
 
 import { RemoteElement, ShadowDocument } from "@/shared/mfe";
 import { Reveal } from "@/shared/ui/motion";
-import { findMfe } from "@/shared/mfe/registry";
 import { loadDocHtml } from "@/shared/mfe/doc-source";
+
+// REA's portfolio embed (`nix build real_estate_allocation#embeds`): a
+// self-registering bundle defining this tag. The image build copies it into
+// public/mfe/, so it is served same-origin — REA's own origin serves only
+// `/health` and the CORS-open `/api/embed/*`, which the bundle calls at the
+// origin advertised in <meta name="rea-url"> (application/metadata.ts).
+const REA_OVERVIEW = {
+  tag: "mfe-real-estate-overview",
+  scriptUrl: "/mfe/mfe-real-estate-overview.js",
+} as const;
 
 // Baked into public/mfe/ by REA's own `nix build` (§ component-MFE snapshot contract):
 // a static HTML render of the SAME view components the live bundle mounts, so it can't
@@ -19,10 +28,6 @@ const snapshot = (locale: Locale) => `/mfe/portfolio.${locale}.html`;
 // scroll target and the /#portfolio nav anchor, held by the host wrapper so it lands
 // whether or not the remote has upgraded yet.
 export async function Portfolio({ locale }: { locale: Locale }) {
-  const entry = await findMfe("real-estate.overview");
-  // The registry is in-repo static data; a missing entry is a broken build.
-  if (!entry)
-    throw new Error("real-estate.overview missing from mfe-registry.json");
   const SNAPSHOT = snapshot(locale);
   // Assert the snapshot exists at BUILD time — a missing snapshot is a broken build, not
   // a runtime degradation. `loadDocHtml` (node:fs) throws if it's absent. A locale REA's
@@ -35,8 +40,8 @@ export async function Portfolio({ locale }: { locale: Locale }) {
           section fades in without moving. */}
       <Reveal from="none">
         <RemoteElement
-          tag={entry.tag}
-          scriptUrl={entry.scriptUrl}
+          tag={REA_OVERVIEW.tag}
+          scriptUrl={REA_OVERVIEW.scriptUrl}
           fallback={<ShadowDocument src={SNAPSHOT} />}
         />
       </Reveal>

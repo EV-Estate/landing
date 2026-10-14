@@ -1,6 +1,5 @@
 import type { MetadataRoute } from "next";
-import { LOCALES, localePath } from "@evinvest/i18n";
-import { SITE } from "@/shared/config/site";
+import { CABINET_PATH, SITE } from "@/shared/config/site";
 
 // Static route — reads only build-time env, so it stays statically generated
 // (and cached) even though the page is dynamic via the layout's await cookies().
@@ -31,14 +30,10 @@ const AI_CRAWLERS = [
   "Amazonbot",
 ];
 
-// The cabinet zone mounts at `/cabinet` (English, unprefixed) AND
-// `/{locale}/cabinet` for every other locale (PATTERNS.md §9) — both are real
-// route trees, not redirects, so both need the disallow. A crawler restricted
-// by robots.txt never fetches the page at all, which `X-Robots-Tag` (the
-// header the cabinet proxy route now sets — see shared/zone-proxy.ts) cannot do
-// on its own; the two are complementary, same as the raw-document carve-out in
-// next.config.ts's headers().
-const CABINET_PATHS = LOCALES.map(locale => localePath(locale, "/cabinet"));
+// The cabinet is another app on this host, but robots.txt is per host and this
+// app serves it, so the cabinet's disallow lives here. A crawler restricted by
+// robots.txt never fetches the page at all, which an `X-Robots-Tag` from the
+// cabinet cannot do on its own.
 
 // Repeated into every group rather than written once, because robots.txt has no
 // inheritance: a crawler obeys the ONE group that names it and ignores the `*`
@@ -46,7 +41,7 @@ const CABINET_PATHS = LOCALES.map(locale => localePath(locale, "/cabinet"));
 // nothing else, were exempt from the `*` group's `/api/` disallow — and would
 // have been exempt from the cabinet's too. "Allowed everywhere the default
 // crawler is" is what those groups mean; it is not "allowed more than it".
-const DISALLOW = ["/api/", ...CABINET_PATHS];
+const DISALLOW = ["/api/", CABINET_PATH];
 
 export default function robots(): MetadataRoute.Robots {
   return {

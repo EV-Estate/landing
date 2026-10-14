@@ -1,7 +1,8 @@
 import { localePath, type Locale } from "@evinvest/i18n";
 
 import type { Translate } from "@evinvest/i18n";
-import type { HeaderAuthLinks } from "./header-shared";
+import { CABINET_PATH } from "@/shared/config/site";
+import type { HeaderCabinetLink } from "./header-shared";
 
 // One entry's label, deferred until a translator exists. A plain string would
 // force the catalogue key back out of the call site, which is what the inline
@@ -11,9 +12,10 @@ export interface NavEntry {
   label: (t: Translate) => string;
   href: string;
   /**
-   * A cross-zone target (PATTERNS §9): rendered as a plain `<a>`, never
-   * `next/link` — this router does not own the route, so a soft navigation
-   * would fetch a payload the zone never emits.
+   * A target owned by another app on this host (the cabinet): rendered as a
+   * plain `<a>`, never `next/link` — this router does not own the route, so a
+   * soft navigation would fetch a payload that app never emits. Also never
+   * locale-prefixed, see CABINET_PATH.
    */
   hard?: boolean;
 }
@@ -25,13 +27,11 @@ export interface LocalizedNavEntry {
   hard?: boolean;
 }
 
-// Header navigation — single source for desktop + mobile menus, on conductor
-// pages and in the zone-injected shell fragment (scripts/build-shell.mts) alike.
-// Portfolio / Research are root-relative anchors to the homepage sections (so
-// they work from any route, then scroll); Publications / Team / Hiring /
-// Contact are dedicated pages. The brand logo links home. The cabinet entries
-// are rendered separately: the static signed-out pair from `authLinks` below
-// (header-cta.tsx), the signed-in chip from account-chip-remote.tsx.
+// Header navigation — single source for desktop + mobile menus. Portfolio /
+// Research are root-relative anchors to the homepage sections (so they work
+// from any route, then scroll); Publications / Team / Hiring / Contact are
+// dedicated pages. The brand logo links home. The cabinet entry is rendered
+// separately, from `cabinetLink` below (header-cta.tsx).
 export const NAV_ITEMS: readonly NavEntry[] = [
   { label: t => t("nav.portfolio", "Portfolio"), href: "/#portfolio" },
   { label: t => t("nav.research", "Research"), href: "/#research" },
@@ -42,8 +42,8 @@ export const NAV_ITEMS: readonly NavEntry[] = [
 ];
 
 // Footer sitemap columns (issue #34). Company = dedicated pages; Explore =
-// homepage sections + research surfaces; Investors = the self-serve funnel's
-// entry points (issue #201). Crawlable internal links from every page, so each
+// homepage sections + research surfaces; Investors = the way into the cabinet
+// plus the reports. Crawlable internal links from every page, so each
 // destination is one hop from anywhere on the site.
 export const FOOTER_NAV: readonly {
   heading: (t: Translate) => string;
@@ -81,22 +81,7 @@ export const FOOTER_NAV: readonly {
     links: [
       {
         label: t => t("footer.cabinet", "Cabinet"),
-        href: "/cabinet/login",
-        hard: true,
-      },
-      {
-        label: t => t("footer.openAccount", "Open an account"),
-        // `intent=signup` is what the login page reads for its first-visit
-        // state (banking #391); a bare /cabinet bounces newcomers to
-        // "Welcome back".
-        href: "/cabinet/login?intent=signup",
-        hard: true,
-      },
-      {
-        label: t => t("footer.finishVerification", "Finish verification"),
-        // The cabinet has no standalone KYC route: the verification row lives
-        // on the profile screen.
-        href: "/cabinet/profile",
+        href: CABINET_PATH,
         hard: true,
       },
       { label: t => t("footer.reports", "Reports"), href: "/publications" },
@@ -126,29 +111,19 @@ export function localizeNav(
 ): LocalizedNavEntry[] {
   return items.map(item => ({
     label: item.label(t),
-    href: localePath(locale, item.href),
+    href: item.hard ? item.href : localePath(locale, item.href),
     ...(item.hard && { hard: true }),
   }));
 }
 
-// The signed-out pair's targets, one place for both hosts (the conductor's
-// <Header> and the zone fragment in scripts/build-shell.mts). Hard cross-zone
-// hrefs (PATTERNS §9), both onto the sign-in page: a newcomer arrives with
-// `intent=signup`, which the login page reads for its first-visit state
-// (banking #391) — a bare /cabinet would bounce them to the default
-// "Welcome back" — and a returning investor without it. The cabinet's proxy
-// already sends a signed-in reader away from /login. Both labels are capped at
-// 20 characters (i18n-max) — the primary shares the bar with the burger below
-// `sm`, where a longer label overflows a 320px viewport in German.
-export function authLinks(locale: Locale, t: Translate): HeaderAuthLinks {
+// The header's entry into the cabinet (header-cta.tsx). One link to the
+// cabinet root: the cabinet decides itself whether a reader sees sign-in or
+// their account. The label is kept within 20 characters in every locale — it shares
+// the bar with the burger below `sm`, where a longer one overflows a 320px
+// viewport.
+export function cabinetLink(t: Translate): HeaderCabinetLink {
   return {
-    openAccount: {
-      href: localePath(locale, "/cabinet/login?intent=signup"),
-      label: t("header.openAccount", "Open an account"),
-    },
-    cabinet: {
-      href: localePath(locale, "/cabinet/login"),
-      label: t("header.cabinet", "Cabinet"),
-    },
+    href: CABINET_PATH,
+    label: t("header.openCabinet", "Open the cabinet"),
   };
 }

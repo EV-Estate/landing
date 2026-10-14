@@ -27,12 +27,6 @@ const nextConfig: NextConfig = {
     NEXT_PUBLIC_BUILD_COMMIT: buildCommit,
   },
   reactStrictMode: true,
-  // The /rea zone is a Dioxus app under base_path "rea": its WebHistory strips
-  // the "/rea" prefix, so `/rea/?q` → `/?q` (matches) but `/rea?q` → `?q` (route
-  // parse fails). Next's default trailing-slash redirect turns `/rea/?q` into
-  // `/rea?q`, breaking every deep link. Serve URLs as-is so the trailing slash
-  // survives to the proxy — our own links never rely on the redirect.
-  skipTrailingSlashRedirect: true,
   // Dev-only: Next 16 blocks its dev resources (incl. the HMR socket) for any
   // origin but `localhost`, and a dead HMR socket means the client runtime
   // never boots — pages hydrate on localhost but are inert on 127.0.0.1.
@@ -81,15 +75,14 @@ const nextConfig: NextConfig = {
       // rewrite is internal and never re-enters the redirect pipeline. Every
       // source here is itself /en-prefixed, so an unprefixed path never matches.
       //
-      // The cabinet is the one exception, and has to be: that zone owns
-      // `/{locale}/cabinet/*` as real routes and bounces an unprefixed
-      // `/cabinet/*` to the reader's locale itself. Collapsing `/en/cabinet/*`
-      // back answers that bounce with the path it just left —
-      // `/cabinet/x` -> zone 307 -> `/en/cabinet/x` -> this 308 -> `/cabinet/x`
-      // — an endless loop for every English reader, which is most of them.
-      // `redirects()` runs before dynamic routes (the pipeline note below spells
-      // the order out), so app/[locale]/cabinet stays unreachable for English
-      // while this rule still matches it.
+      // The cabinet is the one exception. It is another app on this host
+      // (Traefik, `PathPrefix(/cabinet)`), and the one it replaces bounced an
+      // unprefixed `/cabinet/*` into `/{locale}/cabinet/*`. If the cabinet
+      // keeps that bounce, collapsing `/en/cabinet/*` back answers it with the
+      // path it just left —
+      // `/cabinet/x` -> cabinet 307 -> `/en/cabinet/x` -> this 308 -> `/cabinet/x`
+      // — an endless loop for every English reader. Left out of the collapse,
+      // a stray `/en/cabinet/*` that reaches this app is a 404, not a loop.
       { source: "/en", destination: "/", permanent: true },
       {
         // The carve-out is a negative lookahead on the source only; the
@@ -118,17 +111,6 @@ const nextConfig: NextConfig = {
       },
       { source: "/whitepaper.pdf", headers: noindex },
       { source: "/publications/:slug.pdf", headers: noindex },
-      // AppShell assets are content-hashed by scripts/build-shell.mts — one
-      // fetch, then cached across conductor pages and every zone.
-      {
-        source: "/shell/:path*",
-        headers: [
-          {
-            key: "Cache-Control",
-            value: "public, max-age=31536000, immutable",
-          },
-        ],
-      },
       // Section art under public/assets is served raw (the hero paints
       // quynhon_future as a CSS background, outside the next/image pipeline),
       // and Next's default for public/ is max-age=0 — a revalidation round trip
@@ -177,69 +159,7 @@ const nextConfig: NextConfig = {
       { protocol: "https", hostname: "i.ytimg.com", pathname: "/vi/**" },
     ],
   },
-  // Multi-zone mounts (PATTERNS.md §9): asset/API traffic goes straight to the
-  // zone over native rewrites; zone *HTML* goes through the shell-injecting
-  // proxy route handlers (app/cabinet/…, app/rea/…) instead, which is
-  // why these must be beforeFiles — a bare array is afterFiles, which would
-  // shadow the catch-all handlers. Env unset ⇒ no rewrites and the handler
-  // 404s, a deliberate "zone disabled" state.
   async rewrites() {
-    const beforeFiles = [];
-    const cabinet = config.cabinetZoneUrl?.replace(/\/+$/, "");
-    if (cabinet) {
-      beforeFiles.push(
-        {
-          source: "/cabinet/_next/:path*",
-          destination: `${cabinet}/cabinet/_next/:path*`,
-        },
-        {
-          source: "/cabinet/api/:path*",
-          destination: `${cabinet}/cabinet/api/:path*`,
-        },
-        {
-          source: "/cabinet/mfe/:path*",
-          destination: `${cabinet}/cabinet/mfe/:path*`,
-        }
-      );
-    }
-    const rea = config.reaZoneUrl?.replace(/\/+$/, "");
-    if (rea) {
-      beforeFiles.push(
-        {
-          source: "/rea/assets/:path*",
-          destination: `${rea}/rea/assets/:path*`,
-        },
-        {
-          source: "/rea/api/:path*",
-          destination: `${rea}/rea/api/:path*`,
-        }
-      );
-    }
-    // Auth is shell-owned but concierge-implemented: login/callback/session live
-    // on THIS origin (cookies land first-party for every zone) and rewrite to the
-    // concierge plane's auth web surface. Zones never run OAuth — they link to
-    // /api/auth/login and verify the shared access-JWT cookie.
-    //
-    // KYC rides the SAME concierge web surface, so it reuses this one URL rather
-    // than introducing a second env var for the same service. Two unlike shapes
-    // pass through here:
-    //   /api/kyc/start            — the browser's, carrying the shared session cookie
-    //   /api/kyc/callback/:vendor — the provider's, server-to-server
-    // The callback is what makes this rewrite load-bearing: the verification
-    // vendor POSTs it from its own infrastructure, so it must be reachable on the
-    // PUBLIC origin. Concierge authenticates that request by HMAC over the raw
-    // body, never by a cookie — the absent session there is by design, not a hole.
-    const auth = config.authWebUrl?.replace(/\/+$/, "");
-    if (auth) {
-      beforeFiles.push(
-        { source: "/api/auth/:path*", destination: `${auth}/auth/:path*` },
-        {
-          source: "/api/callback/auth/:path*",
-          destination: `${auth}/callback/auth/:path*`,
-        },
-        { source: "/api/kyc/:path*", destination: `${auth}/kyc/:path*` }
-      );
-    }
     // Serves the default locale at unprefixed paths, so no indexed English URL
     // moves and the site still ships no proxy.ts.
     //
@@ -251,7 +171,7 @@ const nextConfig: NextConfig = {
     // tried, rewriting /ru/team to /en/ru/team (404) while /team still resolves
     // and hides the bug. `fallback` runs last, after dynamic routes have had
     // their chance, which is the semantics actually wanted. Verified on 16.2.9 in
-    // dev and a production build — see docs/i18n-routing-spike.md.
+    // dev and a production build — see site_conductor docs/i18n-routing-spike.md.
     //
     // Inlined rather than `localeRewrites()` from @evinvest/i18n/next — same
     // reason as the Sentry exception above: this file is loaded as CJS, and the
@@ -275,10 +195,11 @@ const nextConfig: NextConfig = {
     //
     // The lookahead is what keeps this from being the broken afterFiles rule
     // described above: a locale-prefixed path never matches, so `/ru/team`
-    // still reaches [locale] as itself. The other excluded roots are the
-    // dynamic routes outside [locale] (app/cabinet, app/rea), API space and
-    // Next's own — they keep exactly the pre-16.4 path through the fallback,
-    // which stays for them and for `/`. `.+` leaves `/` to the fallback too.
+    // still reaches [locale] as itself. The other excluded roots are API space,
+    // Next's own, and the paths other apps own: `/cabinet` (EV-Fund/invest on
+    // this host) and `/rea` (REA on evinvest.ltd) — neither is a page here, so
+    // they keep the fallback's 404 rather than being dressed up as English
+    // pages. `.+` leaves `/` to the fallback too.
     // The locale list restates LOCALES from @evinvest/i18n (CJS boundary,
     // as above): a new locale must be added here or its pages 404.
     const unprefixed = [
@@ -293,7 +214,6 @@ const nextConfig: NextConfig = {
       "_next",
     ].join("|");
     return {
-      beforeFiles,
       afterFiles: [
         {
           source: `/:path((?!(?:${unprefixed})(?:/|$)).+)`,

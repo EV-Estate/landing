@@ -175,10 +175,6 @@
     "en": "Field Notes & Research",
     "t": "Ghi chép & Nghiên cứu"
   },
-  "footer.finishVerification": {
-    "en": "Finish verification",
-    "t": "Hoàn tất xác minh"
-  },
   "footer.investors": {
     "en": "Investors",
     "t": "Nhà đầu tư"
@@ -243,10 +239,6 @@
     "en": "Quy Nhon Head Office",
     "t": "Trụ sở chính Quy Nhơn"
   },
-  "footer.openAccount": {
-    "en": "Open an account",
-    "t": "Mở tài khoản"
-  },
   "footer.reports": {
     "en": "Reports",
     "t": "Báo cáo"
@@ -287,21 +279,9 @@
     "en": "Something went wrong. Please try again.",
     "t": "Đã có lỗi xảy ra. Vui lòng thử lại."
   },
-  "header.cabinet": {
-    "en": "Cabinet",
-    "t": "Cabinet"
-  },
-  "header.openAccount": {
-    "en": "Open an account",
-    "t": "Mở tài khoản"
-  },
-  "header.signOut": {
-    "en": "Sign out",
-    "t": "Đăng xuất"
-  },
-  "header.signOutFailed": {
-    "en": "Couldn't sign you out. Please try again.",
-    "t": "Không thể đăng xuất. Vui lòng thử lại."
+  "header.openCabinet": {
+    "en": "Open the cabinet",
+    "t": "Mở cabinet"
   },
   "hiring.board.allRoles": {
     "en": "All roles",
@@ -1514,13 +1494,5 @@
   "whitepaper.title": {
     "en": "EV Investment Whitepaper",
     "t": "Whitepaper của EV Investment"
-  },
-  "zone.failed": {
-    "en": "This page did not finish loading.",
-    "t": "Trang này chưa tải xong."
-  },
-  "zone.reload": {
-    "en": "Reload",
-    "t": "Tải lại"
   }
 }

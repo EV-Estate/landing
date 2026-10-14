@@ -9,20 +9,11 @@ import { ErrorMonitoringProvider } from "@/features/error-monitoring";
 import { PostHogProvider, PostHogPageView } from "@/features/analytics";
 import { DevAbPanel } from "@/features/ab-variant";
 import { config } from "@/config";
-import shell from "@/public/shell/manifest.json";
-import { spanEnterScript } from "@/scripts/span-enter";
 import { localeCookieScript } from "@/scripts/locale-cookie";
 import { Header } from "./header";
-import { HeaderAccountSlot, MenuAccountSlot } from "./account-chip-remote";
 import { Footer } from "./footer";
 import { DarkReaderHydrationFilter } from "./dark-reader-hydration-filter";
 import "@/application/styles/globals.css";
-// Imported here rather than @import-ed from globals.css: Tailwind v4 owns the
-// @import graph in that file and drops a plain relative sheet on the floor —
-// silently, which cost an afternoon. As a module import it is Next's to bundle,
-// and the same file is read verbatim by scripts/build-shell.mts for zones, so
-// both hosts animate identical distances from one source.
-import "@/application/styles/header-span.css";
 
 const analyticsEndpoint = config.public.analyticsEndpoint;
 const analyticsWebsiteId = config.public.analyticsWebsiteId;
@@ -52,32 +43,16 @@ export function SiteDocument({
           The rule exempts files under app/ by path, and this one lives in
           application/ because two routes render it. */}
       <head>
-        {/* Runs before the first paint — a deferred script would land after the
-            paint it exists to precede, which is precisely why the bar used to
-            snap instead of narrowing on the way back from a zone. Inline and
-            un-deferred for that reason alone; it reads one sessionStorage key
-            and sets one attribute. */}
-        <script dangerouslySetInnerHTML={{ __html: spanEnterScript("site") }} />
-        {/* Mirrors this document's locale into the cookie the cabinet zone
-            reads when an unprefixed /cabinet/* entry has to be resolved to a
-            real /{locale}/cabinet/* URL. Pre-paint and un-deferred because the
-            account chip in the header is clickable as soon as the header
-            paints. See scripts/locale-cookie.ts for the cookie contract. */}
+        {/* Mirrors this document's locale into the cookie the cabinet (same
+            host, /cabinet) reads to pick its language for an unprefixed entry.
+            Pre-paint and un-deferred because the header's cabinet link is
+            clickable as soon as the header paints. See scripts/locale-cookie.ts
+            for the cookie contract. */}
         <script
           dangerouslySetInnerHTML={{ __html: localeCookieScript(locale) }}
         />
-        {/* Replays the last confirmed session state onto the header root
-            before the first paint, so a signed-in reader does not see the
-            signed-out pair while /api/auth/session is in flight. The same
-            bytes the zone proxy loads by URL — inlined here because this
-            document has no nonce CSP to satisfy and the file is a few hundred
-            bytes on the critical path. See scripts/session-stamp.ts. */}
-        <script dangerouslySetInnerHTML={{ __html: shell.sessionInline }} />
       </head>
       <body>
-        {/* The header's one behavior implementation — the same content-hashed
-            script the zone proxy injects (BrandHeader ships no React state). */}
-        <Script defer src={shell.js} strategy="afterInteractive" />
         <DarkReaderHydrationFilter />
         <ErrorMonitoringProvider>
           {/* English is authored inline at each call site, so an `en` reader
@@ -101,11 +76,7 @@ export function SiteDocument({
                 <Suspense fallback={null}>
                   <PostHogPageView />
                 </Suspense>
-                <Header
-                  locale={locale}
-                  accountSlot={<HeaderAccountSlot locale={locale} />}
-                  mobileAccountSlot={<MenuAccountSlot locale={locale} />}
-                />
+                <Header locale={locale} />
                 {children}
                 <Footer />
               </PostHogProvider>

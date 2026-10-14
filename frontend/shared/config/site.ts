@@ -14,6 +14,12 @@ export const SITE_URL = (
   config.public.siteUrl ?? "https://evinvest.example"
 ).replace(/\/+$/, "");
 
+// The investor cabinet: a separate app (EV-Fund/invest) that Traefik routes on
+// this same host by `PathPrefix(/cabinet)`, so every link to it is a hard,
+// same-origin `<a>`. Never locale-prefixed: `/ru/cabinet` is not routed to the
+// cabinet and would land on this app's 404.
+export const CABINET_PATH = "/cabinet";
+
 export const SITE = {
   url: SITE_URL,
   name: "EV Investment",

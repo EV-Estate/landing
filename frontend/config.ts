@@ -50,25 +50,6 @@ export const config = {
   get apiUrlInternal(): string | undefined {
     return prodRequired("API_URL_INTERNAL");
   },
-  // Zone origins (multi-zone mounts; see PATTERNS.md §9). Unset ⇒ no rewrites
-  // and the HTML proxy 404s instead of half-proxying — tolerable only in dev,
-  // so prod asserts presence at boot.
-  get cabinetZoneUrl(): string | undefined {
-    return prodRequired("CABINET_ZONE_URL");
-  },
-  get reaZoneUrl(): string | undefined {
-    return prodRequired("REA_ZONE_URL");
-  },
-  // The concierge plane's web surface. Auth is shell-owned: /api/auth/* and
-  // /api/callback/auth/* on THIS origin rewrite there, so session cookies land
-  // first-party for every zone. /api/kyc/* rewrites there too — identity
-  // verification is owned by the same plane and served by the same process, so
-  // it shares this URL instead of a second env var pointing at one service.
-  // Unset ⇒ no rewrites ⇒ auth AND kyc disabled (dev-only). The name stayed
-  // AUTH_WEB_URL: it is already deployed, and renaming it buys nothing.
-  get authWebUrl(): string | undefined {
-    return prodRequired("AUTH_WEB_URL");
-  },
   // Server/edge Sentry environment tag (instrumentation.ts).
   get appEnv(): string | undefined {
     return optional(process.env.APP_ENV);
@@ -105,7 +86,8 @@ export const config = {
         throw new Error("missing required env var NEXT_PUBLIC_SITE_URL");
       return optional(process.env.NEXT_PUBLIC_SITE_URL);
     },
-    // REA backend origin advertised to the MFE bundle. Same prod contract.
+    // REA backend origin advertised to the portfolio embed (the REA bundle
+    // calls its `/api/embed/*` there). Same prod contract.
     get reaUrl(): string | undefined {
       if (!process.env.NEXT_PUBLIC_REA_URL && isProdRuntime())
         throw new Error("missing required env var NEXT_PUBLIC_REA_URL");

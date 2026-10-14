@@ -1,21 +1,20 @@
-// Carries the reader's site language across the zone boundary.
+// Carries the reader's site language into the cabinet.
 //
-// The cabinet is a separate Next app mounted at /cabinet. Its proxy.ts resolves
-// an unprefixed `/cabinet/*` entry to a real `/{locale}/cabinet/*` URL, and to
-// do that it reads the `ev_locale` cookie — falling back to Accept-Language
-// when there is none. Nothing wrote that cookie on the public site, so every
-// reader arriving from the landing was placed by their browser's header
-// instead of by the language they were actually reading: a reader on
-// evinvest.ltd (English, unprefixed) with a Russian-configured browser clicked
-// the account chip and landed in a Russian cabinet. Accept-Language is a
-// suggestion; the URL they are looking at is a fact, and the fact must win.
+// The cabinet is a separate app on this host (EV-Fund/invest behind Traefik's
+// `PathPrefix(/cabinet)`), entered through an unprefixed `/cabinet`. To pick a
+// language for that entry it reads the `ev_locale` cookie, falling back to
+// Accept-Language when there is none. Accept-Language is a suggestion; the URL
+// the reader is looking at is a fact, and the fact must win — without this a
+// reader on the English site with a Russian-configured browser lands in a
+// Russian cabinet.
 //
-// Runs pre-paint, inlined into <head> by application/layout/site-document.tsx,
-// for the same reason span-enter does: the chip is clickable the moment the
-// header paints, so a deferred script can lose the race it exists to win.
+// Runs pre-paint, inlined into <head> by application/layout/site-document.tsx:
+// the header's cabinet link is clickable the moment the header paints, so a
+// deferred script can lose the race it exists to win.
 //
-// COOKIE CONTRACT — shared with banking `cabinet/frontend/shared/config/cookies.ts`,
-// which is where the cookie is otherwise minted and read. Two rules, and the
+// COOKIE CONTRACT — shared with the cabinet, which is where the cookie is
+// otherwise minted and read (inherited from banking
+// `cabinet/frontend/shared/config/cookies.ts`). Two rules, and the
 // browser enforces both, so a mismatch fails loudly rather than silently:
 //   - `__Host-` requires Secure, and Secure requires https. Keying the prefix
 //     off the live protocol therefore produces exactly the name the cabinet

@@ -1,8 +1,10 @@
-# site_conductor
+# landing — frontend
 
-Public site and conductor shell for the EV Investment fund — Next.js 16 (App
-Router) + React 19, laid out with Feature-Sliced Design, styled with Tailwind v4.
-The dev port comes from the `ports` attrset in the repo's `flake.nix`.
+Public landing of the EV Investment fund, served at `invest.evinvest.ltd/` —
+Next.js 16 (App Router) + React 19, laid out with Feature-Sliced Design, styled
+with Tailwind v4. Moved from `site_conductor/frontend` (origin/main `ac600eb`)
+without its zone machinery: the investor cabinet on `/cabinet` of the same host
+is a separate app routed by Traefik (see [`PATTERNS.md` §9](./PATTERNS.md)).
 
 ## Layout
 
@@ -13,60 +15,48 @@ features/     behaviour slices: analytics, ab-variant, investment-calculator
 entities/     domain data (team, …)
 shared/       app-agnostic ui/, lib/, config/, hooks/, mfe/ (microfrontend host)
 application/  styles/globals.css → imports @evinvest/uikit/styles/tokens.css
-public/       static assets
-tests/        per-section Playwright visual baselines
-mfe-registry.json  microfrontend registry (name → tag/scriptUrl/kind)
+public/       static assets (populated by the build; see below)
 ```
 
 FSD import order `app → views → features → entities → shared`; import from a
 slice's `index.ts`, never deep paths. Conventions live in [`PATTERNS.md`](./PATTERNS.md).
 
-## Run only the frontend
+## Run
 
 ```sh
-nix run .#frontend           # port from flake.nix `ports`
+cp .env.example .env.local   # set NEXT_PUBLIC_API_URL at least
+npm ci && npm run dev
 ```
-This first runs `populate-docs`: it builds the **local clones**
-`../_estate/whitepaper` and `../blog` (token-free — those repos are private but their
-flake inputs are public) and copies their HTML/PDF into `public/`. Missing a
-clone or a failed build only warns — the dev server still boots and the doc pages
-degrade to a PDF link. Refresh a doc with `git -C ../_estate/whitepaper pull` (or `../blog`).
 
-Or inside the dev shell (`.envrc` + direnv), which runs `populate-docs` on entry:
-```sh
-cd site_conductor/frontend && npm install && npm run dev
-```
+`public/` is filled by the build, not by hand: the REA portfolio embed and its
+per-locale snapshots (`public/mfe/`), the whitepaper and publications HTML/PDF,
+and a copy of `assets/`. Without them the dev server still boots; the home page
+build fails on the missing portfolio snapshot (§ component-MFE snapshot contract
+in `PATTERNS.md`).
+
 Tailwind builds automatically inside Next via the `@tailwindcss/postcss` plugin —
 no separate step. It imports the shared tokens from
 `@evinvest/uikit/styles/tokens.css` through `application/styles/globals.css`;
-tokens are owned by [`EV-invest/lib`](https://github.com/EV-invest/lib) and
+tokens are owned by [`EV-Main/lib`](https://github.com/EV-Main/lib) and
 reach this repo through a `@evinvest/uikit` bump, never a local edit.
 
 ## Checks
 
 ```sh
-npm run lint                 # eslint
 npm run check                # tsc --noEmit
+npm run lint                 # eslint
+npm run lint:css             # stylelint
+npm run css:check            # Tailwind class conflicts in cn()
+npm run i18n:check           # en generated from code + translation drift
+npm run redirects:check      # /en/* collapse and the English rewrite
 ```
-
-## Visual-regression tests
-
-Per-section Playwright screenshots in [`tests/`](./tests) — one baseline per
-addressable section (`#hero`, `#portfolio`, `#calculator`, `#research`, `#team`,
-plus header/footer). Browsers come from nixpkgs, pinned to the `@playwright/test`
-revision via the flake, so screenshots are reproducible.
-```sh
-npm run test:visual          # compare against committed baselines
-npm run test:visual:update   # regenerate baselines after an intentional UI change
-```
-> Linux-only via nix; skip locally on macOS.
 
 > The site calls only its own backend (vacancies / applications / contact)
 > through the generated client in `shared/api` — there is no hub API client here.
 
 ## Microfrontends
 
-site_conductor composes other EV surfaces at runtime — **never via `<iframe>`** (see
+The landing composes other EV surfaces at runtime — **never via `<iframe>`** (see
 [`PATTERNS.md` §8](./PATTERNS.md)). Two transports from `@/shared/mfe`:
 
 | Remote ships… | Use | Mount |
@@ -86,36 +76,17 @@ props to attributes and CustomEvents to callbacks. The boundary is identical for
 every framework. **Light DOM only** — Tailwind v4 `@property` tokens break inside
 shadow roots, and the global uikit tokens must cascade in.
 
-- **Registry.** A logical name resolves to `{tag, scriptUrl, kind}` from
-  [`mfe-registry.json`](./mfe-registry.json) (served to the browser at
-  `/api/mfe-registry`). Remotes deploy independently — add an entry, don't rebuild
-  site_conductor. Tags are globally unique and versioned. Registry reads
-  (`shared/mfe/registry.ts`) use `node:fs` and are **server-only**; the client-safe
-  `RemoteElement` is the public API from `@/shared/mfe`. `scriptUrl`s are
-  operator-controlled and served openly at `/api/mfe-registry` — **treat registry
-  edits as code** (they execute third-party JS in the site_conductor origin); gate them
-  against an origin allowlist if the registry ever becomes user-/dynamically-sourced.
-
-  ```jsonc
-  // mfe-registry.json — kind:"page" names must be a single URL segment (no dots)
-  [{ "name": "calculator.yield", "tag": "mfe-calculator-yield",
-     "scriptUrl": "https://cdn.example.com/yield.js", "kind": "component" }]
-  ```
-
-- **Inline widget** — render `<RemoteElement>` anywhere (resolve the entry server-side
-  with `findMfe` from `@/shared/mfe/registry`, or pass `tag`/`scriptUrl` directly):
+- **Inline widget** — render `<RemoteElement>` with the remote's `tag` and
+  `scriptUrl` as in-repo constants. `scriptUrl`s are operator-controlled and run
+  third-party JS in this origin — **treat them as code**; gate them against an
+  origin allowlist if they ever become user-/dynamically-sourced.
 
   ```tsx
-  <RemoteElement tag="mfe-calculator-yield" scriptUrl="…"
-    fallback={<p>loading…</p>} />
+  <RemoteElement tag="mfe-real-estate-overview" scriptUrl="/mfe/mfe-real-estate-overview.js"
+    fallback={<ShadowDocument src="/mfe/portfolio.en.html" />} />
   ```
 
-- **Whole page** — register an entry with `"kind": "page"`; it mounts at
-  `/apps/<name>/…` ([`app/apps/[service]/[[...slug]]`](./app/apps)) and owns the
-  content region while site_conductor keeps its chrome. Scoped under `/apps` (not a root
-  catch-all) so it never shadows the marketing routes or the real 404.
-
-**Producing a microfrontend** (other repos — site_conductor ships no producer SDK). The
+**Producing a microfrontend** (other repos — this app ships no producer SDK). The
 canonical, fuller recipe lives in the hub's
 [`docs/ARCHITECTURE.md` § Microfrontends](../../banking/docs/ARCHITECTURE.md); the
 contract is shared with `cabinet`, so keep this in sync with it.
@@ -153,8 +124,7 @@ the page natively, keeping the host chrome and scroll.
 `isolate={false}` (default) is a pure Server Component; `isolate` mounts a client
 shadow island. A source that can't be loaded renders the `fallback`, so a missing
 doc build degrades gracefully. The docs are produced by the sibling `whitepaper`/
-`blog` repos and copied into `public/` by the flake's `populate-docs` (see
-[`../flake.nix`](../flake.nix)).
+`blog` repos and copied into `public/` by the build.
 
 ## Design system (Figma)
 
@@ -162,7 +132,7 @@ The visual language is mirrored in a Figma file
 ([`Main`](https://www.figma.com/design/e0V2P1cQpEFRuXTeNtEMh6/Main)), kept
 **code-first**: [`application/styles/globals.css`](./application/styles/globals.css)
 plus the shared `@evinvest/uikit/styles/tokens.css` (from
-[`EV-invest/lib`](https://github.com/EV-invest/lib)) are the source of truth;
+[`EV-Main/lib`](https://github.com/EV-Main/lib)) are the source of truth;
 the Figma side is conformed to them, never the reverse.
 
 - **Tokens → Figma Variables.** Three collections mirror the CSS tokens 1:1, each

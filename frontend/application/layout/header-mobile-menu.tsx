@@ -1,9 +1,6 @@
 // Below-`lg` navigation: the scrim and the drawer it dims for, both gated by
-// `data-menu-open` on the header root. They stay rendered inline in the header
-// subtree — never moved into a Portal, which renders nothing under
-// `renderToStaticMarkup` and would silently empty the zone shell fragment
-// (scripts/build-shell.mts). All motion is CSS transitions off that attribute,
-// never `motion`: no React runtime exists to hydrate this markup on a zone.
+// `data-menu-open` on the header root (set by header-behavior.tsx). All motion
+// is CSS transitions off that attribute, never `motion` (PATTERNS §10).
 import type { ElementType, ReactNode } from "react";
 import {
   MENU_ENTER_DELAY,
@@ -11,7 +8,6 @@ import {
   type HeaderMenuLabels,
   type HeaderNavItem,
 } from "./header-shared";
-import { HeaderSignOut } from "./header-sign-out";
 
 interface HeaderMobileMenuProps {
   nav: readonly HeaderNavItem[];
@@ -54,23 +50,17 @@ export function HeaderMobileMenu({
           slide-out to finish on close — which is also what keeps the closed
           drawer out of the tab order and the accessibility tree, with no JS.
           Any `<a>`/`<button>` click inside closes it (delegation in
-          header-behavior.ts), so the app-side CTA needs no wiring. */}
+          header-behavior.tsx), so the app-side CTA needs no wiring. */}
       <aside
         data-slot="header-mobile-overlay"
         aria-label={menuLabels.menu}
         className="invisible fixed top-0 right-0 z-[70] flex h-dvh w-80 max-w-[calc(100vw-3rem)] translate-x-full flex-col border-l border-ink/10 bg-background shadow-2xl shadow-background/60 transition-[translate,visibility] duration-300 ease-out group-data-[menu-open]/header:visible group-data-[menu-open]/header:translate-x-0 lg:hidden"
       >
-        {/* The chip, not a "MENU" label. The label named the panel you were
-            already looking at; the chip says who you are signed in as, which is
-            the one thing this panel could tell you and didn't. It arrives on the
-            same cascade as the rows but ahead of them — identity first, then
-            destinations. `min-w-0` so a long address truncates inside the chip
-            rather than pushing the close button off the edge.
-            `relative z-10`: the chip's panel opens downward over the nav rows,
-            and every row is its own stacking context (its `translate` and
-            `opacity`), painted later in DOM order — without a z-index on this
-            row they drew straight through the open panel. */}
-        <div className="relative z-10 flex h-20 shrink-0 items-center justify-between gap-3 px-6">
+        {/* The cabinet entry, not a "MENU" label: the label named the panel
+            you were already looking at. It arrives on the same cascade as the
+            rows but ahead of them. `min-w-0` so a long label truncates rather
+            than pushing the close button off the edge. */}
+        <div className="flex h-20 shrink-0 items-center justify-between gap-3 px-6">
           <div
             style={{ transitionDelay: `${MENU_ENTER_DELAY}ms` }}
             className="min-w-0 flex-1 translate-x-4 opacity-0 transition-[opacity,translate] duration-300 ease-out group-data-[menu-open]/header:translate-x-0 group-data-[menu-open]/header:opacity-100"
@@ -114,16 +104,6 @@ export function HeaderMobileMenu({
             </L>
           ))}
         </nav>
-
-        <div className="flex-1" />
-
-        {/* Shares the last row's beat — see HeaderSignOut for why it still
-            enters on a different vector. */}
-        <HeaderSignOut
-          enterDelayMs={MENU_ENTER_DELAY + (nav.length - 1) * MENU_STEP}
-          label={menuLabels.signOut}
-          failedLabel={menuLabels.signOutFailed}
-        />
       </aside>
     </>
   );

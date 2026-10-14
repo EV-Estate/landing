@@ -1,114 +1,80 @@
-// THE header. The conductor owns it, and there is exactly one: SSR'd on
-// conductor pages, and `renderToStaticMarkup` into the shell fragment injected
-// over zone HTML (scripts/build-shell.mts) — zones never render chrome.
-// Behavior is one implementation for both hosts:
-// scripts/header-behavior.ts toggles `data-scrolled` /
-// `data-menu-open` on the root, and the markup styles off them with
-// `group-data-[...]/header:` variants — no React state, no hydration.
-//   - The mobile drawer + scrim render inline (a Portal renders nothing under
-//     renderToStaticMarkup), gated by `data-menu-open`. `backdrop-blur` lives on
-//     the inner bar div, not the root: a backdrop-filtered root would become the
-//     containing block for their `fixed` boxes and clamp them to the bar.
-//   - All motion here is CSS transitions off those data attributes, never
-//     `motion` — this markup is also stringified into the zone shell, where no
-//     React runtime exists to hydrate it.
-//   - The bar is `fixed` and takes no layout space; the shell CSS pads the zone
-//     document below it via the `--ev-shell-offset` token (build-shell.mts).
-// The parts sit beside this file, composed by BrandHeader and imported below.
-import type { ElementType, ReactNode } from "react";
+// THE header, SSR'd on every page. Behavior lives in one client leaf
+// (header-behavior.tsx), which toggles `data-scrolled` / `data-menu-open` on
+// the root; the markup styles off them with `group-data-[...]/header:`
+// variants, so the bar and drawer themselves carry no React state.
+//   - The mobile drawer + scrim render inline, gated by `data-menu-open`.
+//     `backdrop-blur` lives on the inner bar div, not the root: a
+//     backdrop-filtered root would become the containing block for their
+//     `fixed` boxes and clamp them to the bar.
+//   - Header motion is CSS transitions off those data attributes, never
+//     `motion` (PATTERNS §10, "The second engine: the header").
+//   - The bar is `fixed` and takes no layout space.
+import type { ReactNode } from "react";
 import Link from "next/link";
 import { HeaderActions } from "@/shared/ui/header-actions";
 import { localePath, type Locale } from "@evinvest/i18n";
 import { translate } from "@/shared/config/i18n";
+import { CabinetEntryTracker } from "./cabinet-entry-tracker";
 import { HeaderBar } from "./header-bar";
+import { HeaderBehavior } from "./header-behavior";
+import { HeaderBarCta, HeaderMenuCta } from "./header-cta";
 import { HeaderMobileMenu } from "./header-mobile-menu";
-import {
-  DEFAULT_MENU_LABELS,
-  type HeaderMenuLabels,
-  type HeaderNavItem,
-} from "./header-shared";
-import { NAV_ITEMS, localizeNav } from "./nav-items";
+import type { HeaderMenuLabels, HeaderNavItem } from "./header-shared";
+import { NAV_ITEMS, cabinetLink, localizeNav } from "./nav-items";
 
 export type { HeaderNavItem, HeaderMenuLabels };
 
-export interface BrandHeaderProps {
+interface BrandHeaderProps {
   nav: readonly HeaderNavItem[];
-  /** Right-side call-to-action slot; also re-rendered at the mobile menu's bottom. */
+  /** Right-side call-to-action slot. */
   cta?: ReactNode;
-  /** Overlay-specific CTA (e.g. full-width variant); falls back to `cta`. */
+  /** The drawer's top-row CTA; falls back to `cta`. */
   mobileCta?: ReactNode;
-  linkComponent?: ElementType;
-  /**
-   * Brand-logo target and its accessible name. Defaulted for the zone fragment,
-   * which renders this header un-localised (scripts/build-shell.mts).
-   */
-  homeHref?: string;
-  homeLabel?: string;
-  menuLabels?: HeaderMenuLabels;
-  /** Under the bar; the zone fragment's reload notice (scripts/zone-guard.ts). */
-  notice?: ReactNode;
+  homeHref: string;
+  homeLabel: string;
+  menuLabels: HeaderMenuLabels;
 }
 
-export function BrandHeader({
+function BrandHeader({
   nav,
   cta,
   mobileCta,
-  linkComponent,
-  homeHref = "/",
-  homeLabel = "EV Investment — home",
-  menuLabels = DEFAULT_MENU_LABELS,
-  notice,
+  homeHref,
+  homeLabel,
+  menuLabels,
 }: BrandHeaderProps) {
-  const L = linkComponent ?? "a";
-
   return (
-    // suppressHydrationWarning: scripts/session-stamp.ts may set
-    // `data-session` on this element before React hydrates it, and React's
-    // dev-mode diff would report the attribute it never rendered — the same
-    // arrangement <html> has with `data-span-from`. One level deep only, so
-    // a genuine mismatch below is still reported.
     <header
       data-slot="header"
       className="group/header fixed top-0 left-0 z-[60] w-full"
-      suppressHydrationWarning
     >
       <HeaderBar
         nav={nav}
         cta={cta}
-        linkComponent={L}
+        linkComponent={Link}
         homeHref={homeHref}
         homeLabel={homeLabel}
         menuLabels={menuLabels}
       />
-      {notice}
       <HeaderMobileMenu
         nav={nav}
         cta={cta}
         mobileCta={mobileCta}
-        linkComponent={L}
+        linkComponent={Link}
         menuLabels={menuLabels}
       />
+      <HeaderBehavior />
     </header>
   );
 }
 
-// The conductor's wired header: nav items, `next/link`, and the CTA cluster. The
-// cabinet entries — the static signed-out pair and the account chip, a cabinet
-// element remote resolved server-side — are composed in
-// account-chip-remote.tsx and threaded down as `accountSlot`; route-owned
-// actions (`HeaderActions`) slot in left of them.
-export function Header({
-  accountSlot,
-  mobileAccountSlot,
-  locale,
-}: {
-  accountSlot?: ReactNode;
-  mobileAccountSlot?: ReactNode;
-  locale: Locale;
-}) {
+// The wired header: nav items and the CTA cluster — route-owned actions
+// (`HeaderActions`) left of the cabinet link.
+export function Header({ locale }: { locale: Locale }) {
   // Server-side translation: this is a Server Component, so it reads the
   // catalogue directly rather than going through the client-side provider.
   const t = translate(locale);
+  const cabinet = cabinetLink(t);
   return (
     <BrandHeader
       nav={localizeNav(NAV_ITEMS, locale, t)}
@@ -118,20 +84,20 @@ export function Header({
         open: t("a11y.openMenu", "Open menu"),
         close: t("a11y.closeMenu", "Close menu"),
         menu: t("a11y.siteMenu", "Site menu"),
-        signOut: t("header.signOut", "Sign out"),
-        signOutFailed: t(
-          "header.signOutFailed",
-          "Couldn't sign you out. Please try again."
-        ),
       }}
-      linkComponent={Link}
       cta={
         <>
           <HeaderActions />
-          {accountSlot}
+          <CabinetEntryTracker location="header">
+            <HeaderBarCta link={cabinet} />
+          </CabinetEntryTracker>
         </>
       }
-      mobileCta={mobileAccountSlot}
+      mobileCta={
+        <CabinetEntryTracker location="menu">
+          <HeaderMenuCta link={cabinet} />
+        </CabinetEntryTracker>
+      }
     />
   );
 }

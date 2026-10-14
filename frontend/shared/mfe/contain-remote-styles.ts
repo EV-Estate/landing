@@ -13,12 +13,8 @@
 // on path, not origin, keeps this working when the remote is proxied through the
 // host's own origin — a same-origin remote still injects its own overriding sheet.
 //
-// Only `<link>`s are demoted. The account chip ships its CSS as a filled
-// `<style data-mfe>` already wrapped in `@layer reamfe` (a late `<link>` or
-// `@import` re-resolved the page's fonts and re-wrapped the hero), so there is
-// nothing to demote and turning it into an `@import` would bring that back. Its
-// network fallback is a plain `<link>`, which still lands here; the chip reads
-// readiness off `document.styleSheets`, so the swap does not strand it.
+// Only `<link>`s are demoted: a remote that ships a filled `<style>` already
+// wrapped in `@layer reamfe` has nothing to demote.
 export function containRemoteStyles(scriptUrl: string): () => void {
   if (typeof document === "undefined") return () => {};
   const base = new URL(scriptUrl, window.location.href);
