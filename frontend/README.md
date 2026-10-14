@@ -54,6 +54,51 @@ npm run redirects:check      # /en/* collapse and the English rewrite
 > The site calls only its own backend (vacancies / applications / contact / newsletter)
 > through the generated client in `shared/api` — there is no hub API client here.
 
+### Visual regression — not wired yet
+
+`playwright.config.ts` and `tests/` (section screenshots, the first-viewport
+cabinet CTA, the Russian portfolio) are imported verbatim from
+`site_conductor@ac600eb` and do **not** run in this repo yet: the config still
+reads the old port variable, the header test and the cabinet-CTA test still
+target the removed account chip and `/cabinet/login`, the committed baselines
+predate the header rewrite, and neither `nix run .#test`
+nor CI invokes Playwright. Until that lands, `npm run check` only typechecks
+them.
+
+Baselines are Linux renders (the flake pins nixpkgs' Chromium; macOS has none),
+so they are never captured on a Mac. The intended refresh, as in
+site_conductor: a CI job renders them and uploads a `visual-snapshots`
+artifact, then
+
+```sh
+gh run download <run-id> -R EV-Fund/landing -n visual-snapshots -D frontend/tests/__screenshots__
+```
+
+and commit after looking at the diffs. That job needs the REA deploy key (the
+home page cannot render without REA's per-locale snapshots).
+
+## Environment
+
+One typed reader, [`config.ts`](./config.ts); `process.env` anywhere else fails
+lint. Annotated defaults: [`.env.example`](./.env.example). The prod values are
+set in `flake.nix` (image build and container env).
+
+| Variable | When | Prod value | If unset |
+| --- | --- | --- | --- |
+| `NEXT_PUBLIC_SITE_URL` | build | `https://invest.evinvest.ltd` | placeholder origin at build; prod server refuses to boot |
+| `NEXT_PUBLIC_API_URL` | build | `https://invest.evinvest.ltd` (`/api/v1` via Traefik) | throws on first use, dev and prod |
+| `NEXT_PUBLIC_REA_URL` | build | `https://rea.evinvest.ltd` | dev: flake falls back to local REA; prod server refuses to boot |
+| `NEXT_PUBLIC_POSTHOG_KEY` / `_HOST` | build | literal in `flake.nix` | analytics no-op |
+| `NEXT_PUBLIC_SENTRY_DSN`, `NEXT_PUBLIC_APP_ENV` | build | — | error monitoring no-op |
+| `NEXT_PUBLIC_ANALYTICS_ENDPOINT` / `_WEBSITE_ID` | build | — | Umami not loaded |
+| `API_URL_INTERNAL` | runtime | `http://landing-backend:58846` | prod server throws on first server fetch; dev falls back to the public URL |
+| `SENTRY_DSN`, `APP_ENV`, `SENTRY_ORG` / `_PROJECT` / `_AUTH_TOKEN` | runtime / CI | — | no-op |
+
+`NEXT_PUBLIC_*` is inlined at `next build`; changing it means a new image.
+Dropped with the zone machinery: `CABINET_ZONE_URL`, `REA_ZONE_URL`,
+`AUTH_WEB_URL`. The backend's contract (`CORS_ALLOWED_ORIGINS` and the rest) is
+the `RawSettings` struct in `backend/src/config.rs`.
+
 ## Microfrontends
 
 The landing composes other EV surfaces at runtime — **never via `<iframe>`** (see
