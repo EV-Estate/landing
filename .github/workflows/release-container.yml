@@ -1,0 +1,140 @@
+jobs:
+  release:
+    runs-on: ubuntu-24.04-arm
+    steps:
+    - uses: actions/checkout@v5
+      with:
+        lfs: true
+    - if: github.ref_type == 'tag'
+      name: Validate tag (strict semver)
+      run: "TAG=\"${{ github.ref_name }}\"\nif [[ ! \"$TAG\" =~ ^v[0-9]+\\.[0-9]+\\\
+        .[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then\n  echo \"::error::tag '$TAG' is not a\
+        \ strict semver vX.Y.Z[-prerelease] — refusing to release\" >&2\n  exit 1\n\
+        fi\n"
+      shell: bash
+    - name: Lean cache setup
+      run: 'mkdir -p /tmp/nix-lean-cache
+
+        chmod 0777 /tmp/nix-lean-cache
+
+        printf ''#!/bin/sh\nexport PATH=/nix/var/nix/profiles/default/bin:$PATH\nnix
+        copy --to "file:///tmp/nix-lean-cache?compression=zstd&parallel-compression=true"
+        $OUT_PATHS || true\n'' > /tmp/nix-lean-pbh.sh
+
+        chmod 0755 /tmp/nix-lean-pbh.sh
+
+        '
+      shell: bash
+    - name: Install Nix
+      uses: DeterminateSystems/nix-installer-action@main
+      with:
+        extra-conf: 'lazy-trees = true
+
+          post-build-hook = /tmp/nix-lean-pbh.sh
+
+          extra-substituters = file:///tmp/nix-lean-cache
+
+          extra-trusted-substituters = file:///tmp/nix-lean-cache
+
+          require-sigs = false
+
+          '
+    - name: Lean nix cache (built-only paths)
+      uses: actions/cache@v5
+      with:
+        key: nix-lean-${{ runner.os }}-${{ github.run_id }}
+        path: /tmp/nix-lean-cache
+        restore-keys: nix-lean-${{ runner.os }}-
+    - if: github.ref_type == 'tag' || github.ref == 'refs/heads/dev'
+      name: Log in to GHCR
+      uses: docker/login-action@v4
+      with:
+        password: ${{ secrets.GITHUB_TOKEN }}
+        registry: ghcr.io
+        username: ${{ github.actor }}
+    - name: SSH auth for private flake inputs
+      run: "install -d -m 700 ~/.ssh\nssh-keyscan -t rsa,ed25519 github.com >> ~/.ssh/known_hosts\
+        \ 2>/dev/null\nkey=\"${{ secrets.DEPLOY_KEY_REAL_ESTATE_ALLOCATION }}\"\n\
+        if [ -z \"$key\" ]; then\n  echo \"::error::DEPLOY_KEY_REAL_ESTATE_ALLOCATION\
+        \ unset — build fetches private input 'EV-Main/real_estate_allocation'. Provision:\
+        \ git_ops init-deploy-key EV-Main/real_estate_allocation\" >&2\n  exit 1\n\
+        fi\nprintf '%s\\n' \"$key\" > ~/.ssh/real_estate_allocation\nchmod 600 ~/.ssh/real_estate_allocation\n\
+        printf 'Host gh-real_estate_allocation\\n  HostName github.com\\n  User git\\\
+        n  IdentityFile ~/.ssh/real_estate_allocation\\n  IdentitiesOnly yes\\n' >>\
+        \ ~/.ssh/config\ngit config --global url.\"ssh://git@gh-real_estate_allocation/EV-Main/real_estate_allocation\"\
+        .insteadOf \"ssh://git@github.com/EV-Main/real_estate_allocation\"\ngit config\
+        \ --global url.\"git@gh-real_estate_allocation:EV-Main/real_estate_allocation\"\
+        .insteadOf \"git@github.com:EV-Main/real_estate_allocation\"\nkey=\"${{ secrets.DEPLOY_KEY_BLOG\
+        \ }}\"\nif [ -z \"$key\" ]; then\n  echo \"::error::DEPLOY_KEY_BLOG unset\
+        \ — build fetches private input 'EV-Main/blog'. Provision: git_ops init-deploy-key\
+        \ EV-Main/blog\" >&2\n  exit 1\nfi\nprintf '%s\\n' \"$key\" > ~/.ssh/blog\n\
+        chmod 600 ~/.ssh/blog\nprintf 'Host gh-blog\\n  HostName github.com\\n  User\
+        \ git\\n  IdentityFile ~/.ssh/blog\\n  IdentitiesOnly yes\\n' >> ~/.ssh/config\n\
+        git config --global url.\"ssh://git@gh-blog/EV-Main/blog\".insteadOf \"ssh://git@github.com/EV-Main/blog\"\
+        \ngit config --global url.\"git@gh-blog:EV-Main/blog\".insteadOf \"git@github.com:EV-Main/blog\"\
+        \nkey=\"${{ secrets.DEPLOY_KEY_WHITEPAPER }}\"\nif [ -z \"$key\" ]; then\n\
+        \  echo \"::error::DEPLOY_KEY_WHITEPAPER unset — build fetches private input\
+        \ 'EV-Main/whitepaper'. Provision: git_ops init-deploy-key EV-Main/whitepaper\"\
+        \ >&2\n  exit 1\nfi\nprintf '%s\\n' \"$key\" > ~/.ssh/whitepaper\nchmod 600\
+        \ ~/.ssh/whitepaper\nprintf 'Host gh-whitepaper\\n  HostName github.com\\\
+        n  User git\\n  IdentityFile ~/.ssh/whitepaper\\n  IdentitiesOnly yes\\n'\
+        \ >> ~/.ssh/config\ngit config --global url.\"ssh://git@gh-whitepaper/EV-Main/whitepaper\"\
+        .insteadOf \"ssh://git@github.com/EV-Main/whitepaper\"\ngit config --global\
+        \ url.\"git@gh-whitepaper:EV-Main/whitepaper\".insteadOf \"git@github.com:EV-Main/whitepaper\"\
+        \n"
+      shell: bash
+    - name: Build + push containers
+      run: "set -euo pipefail\nsys=\"$(nix eval --impure --raw --expr builtins.currentSystem)\"\
+        \n# Extract to a var first: `for x in $(cmd)` swallows cmd's exit code, so\
+        \ a\n# failed eval (e.g. a flake error) would leave the loop empty and the\
+        \ job GREEN.\nnames=\"$(nix eval --impure --refresh --json \".#containers.$sys\"\
+        \ --apply builtins.attrNames | jq -r '.[]')\"\n[ -n \"$names\" ] || { echo\
+        \ \"::error::no containers found under .#containers.$sys\" >&2; exit 1; }\n\
+        # nixpkgs skopeo rejects the GH runner's v1-format /etc/containers/registries.conf\n\
+        # (\"must be in v2 format\"); point it at our own minimal v2 file so it never\
+        \ reads the host's.\nCONTAINERS_REGISTRIES_CONF=\"$(mktemp)\"; export CONTAINERS_REGISTRIES_CONF\n\
+        printf 'unqualified-search-registries = []\\n' > \"$CONTAINERS_REGISTRIES_CONF\"\
+        \nfor name in $names; do\n  echo \"::group::$name\"\n  RESULT=\"$(nix build\
+        \ --impure --refresh \".#$name-container\" --no-link --print-out-paths -L\
+        \ 2> >(gawk 'function cat(n) {\n  if      (n ~ /\\.tar\\.gz|layers\\.json|stream-|customisation-layer|-conf\\\
+        .json|-base\\.json|excludePaths/) return \"packaging\"\n  else if (n ~ /landing-frontend|next/)\
+        \      return \"frontend/next\"\n  else if (n ~ /-mfe|wasm/)             \
+        \     return \"wasm-mfe\"\n  else if (n ~ /(^|-)backend/)               return\
+        \ \"backend\"\n  else if (n ~ /blog/)                       return \"blog\"\
+        \n  else if (n ~ /whitepaper/)                 return \"whitepaper\"\n  else\
+        \ if (n ~ /rust-std|cargo-nightly|rust-analyzer|cranelift|rust-docs/) return\
+        \ \"rust-toolchain\"\n  else if (n ~ /\\.tgz/)                       return\
+        \ \"npm-deps\"\n  return \"other-crates\"\n}\n{\n  print $0 > \"/dev/stderr\"\
+        \n  n = \"\"\n  if (match($0, /\\/nix\\/store\\/[a-z0-9]+-[^ ]*\\.drv/)) {\
+        \ n = substr($0, RSTART, RLENGTH) }\n  else if (match($0, /^[A-Za-z0-9._-]+>\
+        \ /))            { n = substr($0, 1, RLENGTH-2) }\n  else next\n  c = cat(n);\
+        \ now = systime()\n  if (!(c in st)) st[c] = now\n  en[c] = now\n  if (t0\
+        \ == 0) t0 = now\n}\nEND {\n  if (t0 == 0) exit\n  tmax = 0; for (c in en)\
+        \ if (en[c] > tmax) tmax = en[c]\n  span = tmax - t0; if (span < 1) span =\
+        \ 1\n  W = 50; unit = (span/W >= 1 ? int(span/W) : 1)\n  printf \"\\n== build\
+        \ timeline (%dm%02ds total, each # ~ %ds) ==\\n\", span/60, span%60, unit\
+        \ > \"/dev/stderr\"\n  PROCINFO[\"sorted_in\"] = \"@val_num_asc\"\n  for (c\
+        \ in st) {\n    a = int((st[c]-t0)/span*W); b = int((en[c]-t0)/span*W); if\
+        \ (b <= a) b = a+1\n    pad = \"\"; for (i=0;i<a;i++) pad = pad \" \"\n  \
+        \  fill = \"\"; for (i=0;i<b-a;i++) fill = fill \"#\"\n    printf \"%-15s\
+        \ |%s%s  %dm%02ds\\n\", c, pad, fill, (en[c]-st[c])/60, (en[c]-st[c])%60 >\
+        \ \"/dev/stderr\"\n  }\n}\n' >&2))\"\n  if [ \"${{ github.ref_type }}\" =\
+        \ \"tag\" ]; then\n    nix run nixpkgs#skopeo -- copy \\\n      \"docker-archive:$RESULT\"\
+        \ \\\n      \"docker://ghcr.io/ev-fund/${name,,}:${{ github.ref_name }}\"\n\
+        \  elif [ \"${{ github.ref }}\" = \"refs/heads/dev\" ]; then\n    nix run\
+        \ nixpkgs#skopeo -- copy \\\n      \"docker-archive:$RESULT\" \\\n      \"\
+        docker://ghcr.io/ev-fund/${name,,}:dev-${GITHUB_SHA::8}\"\n  else\n    echo\
+        \ \"cache-seed build ($name) on ${{ github.ref_name }} — skipping GHCR push\"\
+        \n  fi\n  echo \"::endgroup::\"\ndone\n"
+      shell: bash
+    timeout-minutes: 40
+name: Release containers
+'on':
+  push:
+    branches:
+    - dev
+    tags:
+    - v[0-9]+.*
+permissions:
+  contents: read
+  packages: write
