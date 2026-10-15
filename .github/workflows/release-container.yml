@@ -72,16 +72,23 @@ jobs:
         \ git\\n  IdentityFile ~/.ssh/blog\\n  IdentitiesOnly yes\\n' >> ~/.ssh/config\n\
         git config --global url.\"ssh://git@gh-blog/EV-Main/blog\".insteadOf \"ssh://git@github.com/EV-Main/blog\"\
         \ngit config --global url.\"git@gh-blog:EV-Main/blog\".insteadOf \"git@github.com:EV-Main/blog\"\
-        \nkey=\"${{ secrets.DEPLOY_KEY_WHITEPAPER }}\"\nif [ -z \"$key\" ]; then\n\
-        \  echo \"::error::DEPLOY_KEY_WHITEPAPER unset — build fetches private input\
-        \ 'EV-Main/whitepaper'. Provision: git_ops init-deploy-key EV-Main/whitepaper\"\
-        \ >&2\n  exit 1\nfi\nprintf '%s\\n' \"$key\" > ~/.ssh/whitepaper\nchmod 600\
-        \ ~/.ssh/whitepaper\nprintf 'Host gh-whitepaper\\n  HostName github.com\\\
-        n  User git\\n  IdentityFile ~/.ssh/whitepaper\\n  IdentitiesOnly yes\\n'\
-        \ >> ~/.ssh/config\ngit config --global url.\"ssh://git@gh-whitepaper/EV-Main/whitepaper\"\
-        .insteadOf \"ssh://git@github.com/EV-Main/whitepaper\"\ngit config --global\
-        \ url.\"git@gh-whitepaper:EV-Main/whitepaper\".insteadOf \"git@github.com:EV-Main/whitepaper\"\
-        \n"
+        \nkey=\"${{ secrets.DEPLOY_KEY_BLOG }}\"\nif [ -z \"$key\" ]; then\n  echo\
+        \ \"::error::DEPLOY_KEY_BLOG unset — build fetches private input 'ev-main/blog'.\
+        \ Provision: git_ops init-deploy-key ev-main/blog\" >&2\n  exit 1\nfi\nprintf\
+        \ '%s\\n' \"$key\" > ~/.ssh/blog\nchmod 600 ~/.ssh/blog\nprintf 'Host gh-blog\\\
+        n  HostName github.com\\n  User git\\n  IdentityFile ~/.ssh/blog\\n  IdentitiesOnly\
+        \ yes\\n' >> ~/.ssh/config\ngit config --global url.\"ssh://git@gh-blog/ev-main/blog\"\
+        .insteadOf \"ssh://git@github.com/ev-main/blog\"\ngit config --global url.\"\
+        git@gh-blog:ev-main/blog\".insteadOf \"git@github.com:ev-main/blog\"\nkey=\"\
+        ${{ secrets.DEPLOY_KEY_WHITEPAPER }}\"\nif [ -z \"$key\" ]; then\n  echo \"\
+        ::error::DEPLOY_KEY_WHITEPAPER unset — build fetches private input 'EV-Main/whitepaper'.\
+        \ Provision: git_ops init-deploy-key EV-Main/whitepaper\" >&2\n  exit 1\n\
+        fi\nprintf '%s\\n' \"$key\" > ~/.ssh/whitepaper\nchmod 600 ~/.ssh/whitepaper\n\
+        printf 'Host gh-whitepaper\\n  HostName github.com\\n  User git\\n  IdentityFile\
+        \ ~/.ssh/whitepaper\\n  IdentitiesOnly yes\\n' >> ~/.ssh/config\ngit config\
+        \ --global url.\"ssh://git@gh-whitepaper/EV-Main/whitepaper\".insteadOf \"\
+        ssh://git@github.com/EV-Main/whitepaper\"\ngit config --global url.\"git@gh-whitepaper:EV-Main/whitepaper\"\
+        .insteadOf \"git@github.com:EV-Main/whitepaper\"\n"
       shell: bash
     - name: Build + push containers
       run: "set -euo pipefail\nsys=\"$(nix eval --impure --raw --expr builtins.currentSystem)\"\
