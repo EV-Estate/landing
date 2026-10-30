@@ -11,7 +11,7 @@
 #           and publishes them as `visual-snapshots`, so a dev without a Linux
 #           builder can refresh honestly:
 #
-#             gh run download <run-id> -R EV-Fund/landing -n visual-snapshots -D frontend/tests/__screenshots__
+#             gh run download <run-id> -R EV-Estate/landing -n visual-snapshots -D frontend/tests/__screenshots__
 #             git add frontend/tests/__screenshots__
 #             git commit -m 'test(visual): refresh baselines (run <run-id>)'
 #
