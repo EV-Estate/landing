@@ -205,7 +205,7 @@
             NEXT_PUBLIC_BUILD_VERSION = buildVersion;
             NEXT_PUBLIC_BUILD_COMMIT = buildCommit;
             NEXT_PUBLIC_SITE_URL = siteUrl;
-            NEXT_PUBLIC_REA_URL = "https://rea.evinvest.ltd";
+            NEXT_PUBLIC_REA_URL = "https://estate.evinvest.ltd";
             # An origin: the generated client's paths already carry `/api/v1`.
             NEXT_PUBLIC_API_URL = siteUrl;
             # NEXT_PUBLIC_* are inlined at `next build`; the runtime copies in the
@@ -325,7 +325,7 @@
               # covers the prerender. Missing ⇒ module-eval throw ⇒ 500.
               NEXT_PUBLIC_API_URL = siteUrl;
               NEXT_PUBLIC_SITE_URL = siteUrl;
-              NEXT_PUBLIC_REA_URL = "https://rea.evinvest.ltd";
+              NEXT_PUBLIC_REA_URL = "https://estate.evinvest.ltd";
               NEXT_PUBLIC_POSTHOG_KEY = posthogKey;
               NEXT_PUBLIC_POSTHOG_HOST = posthogHost;
               # Server Component fetches stay in-cluster instead of hairpinning

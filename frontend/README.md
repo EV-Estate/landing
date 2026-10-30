@@ -106,7 +106,7 @@ set in `flake.nix` (image build and container env).
 | --- | --- | --- | --- |
 | `NEXT_PUBLIC_SITE_URL` | build | `https://invest.evinvest.ltd` | placeholder origin at build; prod server refuses to boot |
 | `NEXT_PUBLIC_API_URL` | build | `https://invest.evinvest.ltd` (`/api/v1` via Traefik) | throws on first use, dev and prod |
-| `NEXT_PUBLIC_REA_URL` | build | `https://rea.evinvest.ltd` | dev: flake falls back to local REA; prod server refuses to boot |
+| `NEXT_PUBLIC_REA_URL` | build | `https://estate.evinvest.ltd` | dev: flake falls back to local REA; prod server refuses to boot |
 | `NEXT_PUBLIC_POSTHOG_KEY` / `_HOST` | build | literal in `flake.nix` | analytics no-op |
 | `NEXT_PUBLIC_SENTRY_DSN`, `NEXT_PUBLIC_APP_ENV` | build | — | error monitoring no-op |
 | `NEXT_PUBLIC_ANALYTICS_ENDPOINT` / `_WEBSITE_ID` | build | — | Umami not loaded |
