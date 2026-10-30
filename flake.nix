@@ -362,11 +362,11 @@
             cp -f --no-preserve=mode ${logoSrc} "$pub/assets/logo.svg"
 
             wp=""
-            if [ -d "$repo/../_estate/whitepaper" ]; then
-              wp="$(nix build "$repo/../_estate/whitepaper" --no-link --print-out-paths 2>/dev/null || true)"
+            if [ -d "$repo/../whitepaper" ]; then
+              wp="$(nix build "$repo/../whitepaper" --no-link --print-out-paths 2>/dev/null || true)"
               [ -n "$wp" ] || echo "warn: whitepaper build failed — /whitepaper will degrade" >&2
             else
-              echo "warn: ../_estate/whitepaper not checked out — /whitepaper will degrade" >&2
+              echo "warn: ../whitepaper not checked out — /whitepaper will degrade" >&2
             fi
             if [ -n "$wp" ]; then
               [ -e "$wp/whitepaper.pdf" ]        && cp -f --no-preserve=mode "$wp/whitepaper.pdf"        "$pub/whitepaper.pdf"
@@ -375,11 +375,11 @@
             fi
 
             bl=""
-            if [ -d "$repo/../blog" ]; then
-              bl="$(nix build "$repo/../blog" --no-link --print-out-paths 2>/dev/null || true)"
+            if [ -d "$repo/../../blog" ]; then
+              bl="$(nix build "$repo/../../blog" --no-link --print-out-paths 2>/dev/null || true)"
               [ -n "$bl" ] || echo "warn: blog build failed — /publications will degrade" >&2
             else
-              echo "warn: ../blog not checked out — /publications will degrade" >&2
+              echo "warn: ../../blog not checked out — /publications will degrade" >&2
             fi
             if [ -n "$bl" ]; then
               for dir in "$bl"/*/; do
@@ -403,11 +403,11 @@
 
             # Real-estate MFE — served same-origin at /mfe by the host.
             mfe=""
-            if [ -d "$repo/../_estate/real_estate_allocation" ]; then
-              mfe="$(nix build "$repo/../_estate/real_estate_allocation#embeds" --no-link --print-out-paths 2>/dev/null || true)"
+            if [ -d "$repo/../real_estate_allocation" ]; then
+              mfe="$(nix build "$repo/../real_estate_allocation#embeds" --no-link --print-out-paths 2>/dev/null || true)"
               [ -n "$mfe" ] || echo "warn: real-estate embed build failed — portfolio MFE will degrade" >&2
             else
-              echo "warn: ../_estate/real_estate_allocation not checked out — portfolio MFE will degrade" >&2
+              echo "warn: ../real_estate_allocation not checked out — portfolio MFE will degrade" >&2
             fi
             if [ -n "$mfe" ]; then
               # chmod heals any read-only tree a pre-fix copy left, so rm can clear it.
