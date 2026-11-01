@@ -24,7 +24,7 @@ export function HomeView({ locale }: { locale: Locale }) {
       <HomeStructuredData locale={locale} />
       <Hero locale={locale} />
       <FieldNotes locale={locale} />
-      <Portfolio locale={locale} />
+      <Portfolio />
       <Research locale={locale} />
       <CabinetTour locale={locale} />
       <Partners locale={locale} />

@@ -203,7 +203,7 @@ transports, picked by what the remote ships:
   …)`); identical for JS (React via `@r2wc/react-to-web-component`) and Rust/WASM
   (Dioxus/Leptos). Mounted in **light DOM** — Tailwind v4 `@property` tokens break
   inside shadow roots and the global uikit tokens must cascade in. The tag and
-  bundle URL are in-repo constants at the call site (the home portfolio/REA
+  bundle URL are in-repo constants at the call site (the home portfolio
   section is the live example).
 - **Document remote — `RemoteDocument`.** The remote is a self-contained static
   HTML document (the typst-built whitepaper / blog). `isolate={false}` (default)
@@ -248,36 +248,17 @@ Notes that bite:
   the race for values the remote reads *later* — it does not make an attribute a
   sound channel for something needed at boot.)
 
-### Component-MFE snapshot contract
+### Component MFEs load live from their producer
 
-Every `kind:"component"` microfrontend MUST emit a self-contained static HTML
-snapshot of its root component from its own `nix build`, **one per locale**, named
-`<name>.<locale>.html` beside the embed bundle (e.g. `real-estate.overview` →
-`portfolio.{en,ru,vi,fr,de}.html`), each carrying its own `<html lang>`. Per-locale
-because of the sentence two paragraphs down: the snapshot shows **permanently** if
-the remote never upgrades, so one `lang="en"` file served under `/ru` is not a flash
-of English — it is English forever, for every reader with JS off or a 404'd bundle.
-The snapshot is rendered **natively** (e.g. `dioxus_ssr`) from the **same**
-presentation components the live bundle mounts — never hand-authored — so it can't
-drift, in copy any more than in markup. Self-contained:
-the producer's compiled MFE stylesheet is inlined + a minimal reset + dark
-`color-scheme` (the host is dark-only; snapshots use system-font fallback, as
-the MFE stylesheet ships no fonts and the shadow boundary blocks host inheritance).
-Any value the snapshot can't resolve at build time (live-fetched data) renders the
-**standard missing-data placeholder `—`** (`"ERR"` is reserved for detected data
-faults — a value that *should* exist but is absent).
-
-The host wires it as the element's fallback, picking the file by page locale:
-`<RemoteElement fallback={<ShadowDocument src={`/mfe/<name>.${locale}.html`} />}>`. `RemoteElement`
-renders `{ready ? null : fallback}`, so the snapshot shows until the remote upgrades
-and **permanently** if it never does; `ShadowDocument` adopts the full document
-(head + body) into a shadow root (full style containment — the inlined MFE css
-can't leak). A missing snapshot at **build** time is a broken build (`loadDocHtml`
-throws); the snapshot is **runtime** degradation only. The host `id` anchor stays
-on the light-DOM wrapper `<div>`; the snapshot's own inner `id` is shadow-scoped, so
-there's no `getElementById` collision. The home portfolio/REA section is the live
-example. (One producer today — the cargo-run + css-inline + anchor-grep lives in REA's
-flake; extract to `v_flakes` when a second component-MFE producer appears.)
+A component microfrontend is served by its producer under `/mfe/<service>/` on the
+producer's own origin (CORS-open), and `scriptUrl` is that absolute URL. Nothing of
+it is baked into this image, so a producer release needs no host rebuild. The bundle
+derives its API and asset origin from its own `import.meta.url`; the host passes none.
+There is no static snapshot and no `fallback`: the section stays empty until the
+element upgrades, and for good with JS off or the producer down. The host `id` anchor
+sits on the light-DOM wrapper `<div>`, so it lands either way. The home portfolio
+section (`mfe-analytics-overview` from `https://estate.evinvest.ltd/mfe/analytics/`)
+is the live example.
 
 ## 9. The cabinet — another app on this host
 

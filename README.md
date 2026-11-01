@@ -32,8 +32,8 @@ nix run .#publish -- major|minor|patch
 
 That bumps the latest remote `vX.Y.Z` tag and pushes it — a tag is a deploy. The
 tag triggers the release workflow (`containerRelease` in `flake.nix`): CI builds
-the `frontend` and `backend` OCI images — re-resolving the private inputs (REA
-embeds, blog, whitepaper) to fresh `main` — pushes them to
+the `frontend` and `backend` OCI images — re-resolving the private inputs (blog,
+whitepaper) to fresh `main` — pushes them to
 `ghcr.io/ev-fund/landing-{frontend,backend}`, and Flux rolls them out (see the
 `gitops` repo). Frontend and backend are separate images, so each rolls out
 independently.
@@ -62,23 +62,17 @@ export them, so nothing here hardcodes a number.
 | `nix run .#pull-prod-db` | replace the local landing db with prod's (`PROD_DB=evinvest` before the move) |
 | `nix run .#publish` | bump latest remote `vX.Y.Z` tag (`-- major\|minor\|patch`) + push |
 
-Frontend runs pull docs and the REA bundle from checkouts next to
-`landing/` — `_estate/whitepaper/`, `blog/`, `_estate/real_estate_allocation/`,
-all optional. A missing checkout just warns: docs degrade to a PDF link; the
-portfolio section has no in-repo render — without REA's snapshots the home page
-throws (`loadDocHtml` on `public/mfe/portfolio.<locale>.html`). For a live REA remote
-instead of the baked bundle: run `nix run .#dev` in the
-`_estate/real_estate_allocation` checkout (→ :59079, verify with
-`nix run .#healthcheck` there).
+Frontend runs pull docs from checkouts next to `landing/` — `_estate/whitepaper/`,
+`blog/`, both optional. A missing checkout just warns: docs degrade to a PDF link.
 
 ### Microfrontends — no iframes
 
 Other EV surfaces compose at runtime through `frontend/shared/mfe`, never via
 `<iframe>`. Full reference: [`frontend/PATTERNS.md` §8](./frontend/PATTERNS.md)
 and [`frontend/README.md`](./frontend/README.md). The home portfolio section
-is `real_estate_allocation`'s custom element, served same-origin from `/mfe/`
-(baked into the image from `real_estate_allocation#embeds`, with one static
-snapshot per locale); `/publications/whitepaper` and `/publications/[slug]` are static HTML
+is the analytics overview tile, loaded live from
+`https://estate.evinvest.ltd/mfe/analytics/overview.js` (dev included);
+`/publications/whitepaper` and `/publications/[slug]` are static HTML
 from the sibling typst repos.
 
 

@@ -1,17 +1,15 @@
-// A light-DOM element remote (e.g. the REA portfolio) styles itself by injecting
-// its own Tailwind stylesheet into the host <head>. That sheet's `@layer
+// A light-DOM element remote (e.g. the analytics overview tile) styles itself by
+// injecting its own Tailwind stylesheet into the host <head>. That sheet's `@layer
 // utilities` merges with the host's and, loading last, wins — its non-responsive
 // `.grid-cols-1` overrode our `lg:grid-cols-3` and collapsed grids to one column.
 // We move every stylesheet the remote injects into the low-priority `reamfe`
 // layer (declared first in application/styles/globals.css, below all host layers)
-// so host styles always win while the remote stays fully styled. The remote is
-// served from the host's own origin (`/mfe/…`), so we can't tell its sheet apart
-// by origin — we key on the asset path instead.
+// so host styles always win while the remote stays fully styled.
 //
-// Matched by the asset directory the remote's bundle is served from (e.g. `/mfe/`),
-// never the host's first-party CSS (which lives elsewhere, e.g. `/_next/`). Keying
-// on path, not origin, keeps this working when the remote is proxied through the
-// host's own origin — a same-origin remote still injects its own overriding sheet.
+// Keyed on the directory the remote's bundle is served from (e.g.
+// `https://estate.evinvest.ltd/mfe/analytics/`), not on origin alone, so it also
+// holds for a remote proxied through the host's own origin, where origin can't
+// tell its sheet from the host's first-party CSS (`/_next/`).
 //
 // Only `<link>`s are demoted: a remote that ships a filled `<style>` already
 // wrapped in `@layer reamfe` has nothing to demote.

@@ -42,10 +42,10 @@ export function ShadowDocument({ src, className, fallback = null }: ShadowDocume
         if (cancelled || !host) return;
         // Adopt the whole parsed document so its <head> styles come across with
         // the body. A shadow root's innerHTML fragment-parses and drops
-        // <html>/<head>/<body>, taking the snapshot's inlined stylesheet with it
+        // <html>/<head>/<body>, taking the doc's inlined stylesheet with it
         // (the unstyled-dump bug). DOMParser never executes scripts and
         // parser-created scripts don't run on adoption — safe for the trusted,
-        // script-free snapshot.
+        // script-free doc.
         const root = host.shadowRoot ?? host.attachShadow({ mode: "open" });
         const doc = new DOMParser().parseFromString(html, "text/html");
         root.replaceChildren(doc.documentElement);

@@ -29,10 +29,11 @@ dingbats. Inter additionally carries Cyrillic (`U+0400–04FF`) for the
 concept-interface toast in `shared/lib/utils.ts`; Playfair does not — headings
 are never Cyrillic.
 
-The ranges are not guesswork: **`public/mfe/*.html` is part of the corpus.** The
-REA portfolio widget on the homepage sets financial notation in Greek (`Δ`, `Σ`,
-`ρ`, `γ`) and marks rows with `✓` / `★`, none of which appear anywhere in this
-repo's own sources. Re-scan the shipped bytes, not just `app/`+`views/`, before
+The ranges are not guesswork: **the analytics overview tile is part of the
+corpus.** It mounts in light DOM on the homepage, in our fonts, and sets financial
+notation in Greek (`Δ`, `Σ`, `ρ`, `γ`) and marks rows with `✓` / `★`, none of which
+appear anywhere in this repo's own sources (its copy lives in EV-Estate/analytics).
+Re-scan the shipped bytes and that repo's sources, not just `app/`+`views/`, before
 narrowing anything:
 
 ```sh

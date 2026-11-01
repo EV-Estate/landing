@@ -86,13 +86,6 @@ export const config = {
         throw new Error("missing required env var NEXT_PUBLIC_SITE_URL");
       return optional(process.env.NEXT_PUBLIC_SITE_URL);
     },
-    // REA backend origin advertised to the portfolio embed (the REA bundle
-    // calls its `/api/embed/*` there). Same prod contract.
-    get reaUrl(): string | undefined {
-      if (!process.env.NEXT_PUBLIC_REA_URL && isProdRuntime())
-        throw new Error("missing required env var NEXT_PUBLIC_REA_URL");
-      return optional(process.env.NEXT_PUBLIC_REA_URL);
-    },
     get buildVersion(): string | undefined {
       return optional(process.env.NEXT_PUBLIC_BUILD_VERSION);
     },

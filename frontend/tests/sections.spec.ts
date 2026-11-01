@@ -10,24 +10,20 @@ import { CABINET_PATH } from "../shared/config/site";
 // nav hash, e.g. <baseURL>/#team — those use an id selector. The
 // page chrome (header/footer) has no anchor, so it's keyed by tag.
 //
-// portfolio is embedded from ../real_estate_allocation. The live wasm bundle IS
-// served in the test env, so to get a deterministic baseline we block it (below)
-// and screenshot the ShadowDocument snapshot fallback instead — which is ours
-// (host-side mount) and the regression guard for the styled-snapshot fix. The
-// live interactive element itself is not ours to test.
+// No portfolio baseline: the section is the analytics service's tile, loaded live
+// from its own origin, so its pixels are not ours to pin.
 //
 // `on` lists the viewports (playwright.config.ts projects, matched by tag) a
 // section is baselined at. Mobile covers the page chrome and the hero — the
 // surfaces the funnel work reshapes below `sm` (issue #205); the content
 // sections stay desktop-only until their phone layout is worth a baseline of
-// its own (portfolio is REA's render, not ours to pin twice).
+// its own.
 //
 // Adding a section to the site = adding one line here. Nothing else changes.
 const SECTIONS = [
   { name: "header", selector: "header", on: ["desktop", "mobile"] },
   { name: "hero", selector: "#hero", on: ["desktop", "mobile"] },
   { name: "research", selector: "#research", on: ["desktop"] },
-  { name: "portfolio", selector: "#portfolio", on: ["desktop"] },
   { name: "partners", selector: "#partners", on: ["desktop"] },
   {
     name: "cabinet-tour",
@@ -100,24 +96,9 @@ async function waitForMotionToSettle(page: Page) {
 
 for (const { name, selector, on } of SECTIONS) {
   test(`- mismatch on: ${name}`, { tag: tags(on) }, async ({ page }) => {
-    if (name === "portfolio") {
-      // Block REA's embed bundle so RemoteElement never upgrades and the
-      // ShadowDocument snapshot fallback stays put — a deterministic, wasm-timing-
-      // independent target. This is exactly what the styled-snapshot fix renders.
-      await page.route(
-        /real_estate_allocation_embeds_bg\.wasm|mfe-real-estate-overview\.js/,
-        r => r.abort()
-      );
-    }
     await gotoHome(page);
 
-    // Playwright's CSS locator pierces open shadow roots, so `#portfolio` matches
-    // both the light-DOM wrapper and the snapshot's own `id="portfolio"` inside the
-    // shadow. The wrapper is their common ancestor → `.first()` in DOM order.
-    const section =
-      name === "portfolio"
-        ? page.locator(selector).first()
-        : page.locator(selector);
+    const section = page.locator(selector);
     await expect(section).toBeVisible();
 
     if (PIN_TO_TOP.has(name)) {
@@ -281,52 +262,26 @@ for (const viewport of ["desktop", "mobile"] as const) {
 }
 
 // Issue 39's regression gate. The portfolio section is the one place on the
-// landing where the copy belongs to another repo, so it was English under every
-// locale's chrome — and English *twice over*, by two independent mechanisms that
-// both have to be checked:
-//
-//   snapshot path — JS off, or the bundle 404s. `portfolio.ru.html`, chosen by
-//                   the host at build. Shows permanently, so this is not a flash.
-//   wasm path     — the live bundle, which resolves the locale itself off the
-//                   page's `lang` (ev_lib::mfe::host_locale). Nothing is passed
-//                   to it; a prop or an attribute would arrive too late.
+// landing where the copy belongs to another repo, and it was English under every
+// locale's chrome. The live bundle resolves the locale itself off the page's `lang`
+// (ev_lib::mfe::host_locale); nothing is passed to it, a prop or an attribute
+// would arrive too late.
 //
 // Text, not a screenshot: the point is the language, and a per-locale baseline
-// would have to be re-captured on every copy edit in REA.
+// would have to be re-captured on every copy edit in analytics.
 const RU_PORTFOLIO = "Почему Куинён?";
 
-for (const path of ["snapshot", "wasm"] as const) {
-  test(
-    `- portfolio reads Russian on /ru (${path})`,
-    { tag: ["@desktop"] },
-    async ({ page }) => {
-      if (path === "snapshot") {
-        await page.route(
-          /real_estate_allocation_embeds_bg\.wasm|mfe-real-estate-overview\.js/,
-          r => r.abort()
-        );
-      }
-      await page.goto("/ru");
-      // `evaluate`, not `locator("html")`: on the snapshot path that selector
-      // pierces the shadow root and matches two documents — the page's and the
-      // snapshot's. Which is the proof the right file was picked, asserted below.
-      expect(await page.evaluate(() => document.documentElement.lang)).toBe(
-        "ru"
-      );
+test(
+  "- portfolio reads Russian on /ru",
+  { tag: ["@desktop"] },
+  async ({ page }) => {
+    await page.goto("/ru");
+    expect(await page.evaluate(() => document.documentElement.lang)).toBe("ru");
 
-      const section = page.locator("#portfolio").first();
-      await section.scrollIntoViewIfNeeded();
-      if (path === "snapshot") {
-        // The host chose `portfolio.ru.html`, so the adopted document carries its
-        // own `lang="ru"`. A regression to a single snapshot shows up here as `en`
-        // rather than as copy that merely looks wrong.
-        await expect(section.locator("html")).toHaveAttribute("lang", "ru");
-      }
-      // `getByText` pierces open shadow roots, so this reads the snapshot's copy
-      // through ShadowDocument's root as readily as the live element's light DOM.
-      await expect(section.getByText(RU_PORTFOLIO).first()).toBeVisible({
-        timeout: 15_000,
-      });
-    }
-  );
-}
+    const section = page.locator("#portfolio");
+    await section.scrollIntoViewIfNeeded();
+    await expect(section.getByText(RU_PORTFOLIO).first()).toBeVisible({
+      timeout: 15_000,
+    });
+  }
+);

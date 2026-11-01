@@ -14,8 +14,8 @@ nix run .#publish -- major|minor|patch
 
 That bumps the latest remote `vX.Y.Z` tag and pushes it — a tag is a deploy. The
 tag triggers the release workflow (`containerRelease` in `flake.nix`): CI builds
-the `frontend` and `backend` OCI images — re-resolving the private inputs (REA
-embeds, blog, whitepaper) to fresh `main` — pushes them to
+the `frontend` and `backend` OCI images — re-resolving the private inputs (blog,
+whitepaper) to fresh `main` — pushes them to
 `ghcr.io/ev-fund/landing-{frontend,backend}`, and Flux rolls them out (see the
 `gitops` repo). Frontend and backend are separate images, so each rolls out
 independently.

@@ -28,11 +28,8 @@ cp .env.example .env.local   # set NEXT_PUBLIC_API_URL at least
 npm ci && npm run dev
 ```
 
-`public/` is filled by the build, not by hand: the REA portfolio embed and its
-per-locale snapshots (`public/mfe/`), the whitepaper and publications HTML/PDF,
-and a copy of `assets/`. Without them the dev server still boots; the home page
-build fails on the missing portfolio snapshot (§ component-MFE snapshot contract
-in `PATTERNS.md`).
+`public/` is filled by the build, not by hand: the whitepaper and publications
+HTML/PDF, and a copy of `assets/`. Without them the dev server still boots.
 
 Tailwind builds automatically inside Next via the `@tailwindcss/postcss` plugin —
 no separate step. It imports the shared tokens from
@@ -92,9 +89,7 @@ Status: the committed baselines are still the ones from `site_conductor@ac600eb`
 and are stale — `header.png`, `mobile/header.png` and `mobile/header-drawer.png`
 predate the header rewrite, and `cabinet-tour.png` / `mobile/cabinet-tour.png`
 may too. Expect the gate to be red until they are refreshed from a CI run. The
-job itself cannot pass until the repo has the `DEPLOY_KEY_REAL_ESTATE_ALLOCATION`
-secret (the home page cannot render without REA's per-locale snapshots) and
-`CACHIX_AUTH_TOKEN`.
+job itself cannot pass until the repo has the `CACHIX_AUTH_TOKEN` secret.
 
 ## Environment
 
@@ -106,7 +101,6 @@ set in `flake.nix` (image build and container env).
 | --- | --- | --- | --- |
 | `NEXT_PUBLIC_SITE_URL` | build | `https://invest.evinvest.ltd` | placeholder origin at build; prod server refuses to boot |
 | `NEXT_PUBLIC_API_URL` | build | `https://invest.evinvest.ltd` (`/api/v1` via Traefik) | throws on first use, dev and prod |
-| `NEXT_PUBLIC_REA_URL` | build | `https://estate.evinvest.ltd` | dev: flake falls back to local REA; prod server refuses to boot |
 | `NEXT_PUBLIC_POSTHOG_KEY` / `_HOST` | build | literal in `flake.nix` | analytics no-op |
 | `NEXT_PUBLIC_SENTRY_DSN`, `NEXT_PUBLIC_APP_ENV` | build | — | error monitoring no-op |
 | `NEXT_PUBLIC_ANALYTICS_ENDPOINT` / `_WEBSITE_ID` | build | — | Umami not loaded |
@@ -146,8 +140,8 @@ shadow roots, and the global uikit tokens must cascade in.
   origin allowlist if they ever become user-/dynamically-sourced.
 
   ```tsx
-  <RemoteElement tag="mfe-real-estate-overview" scriptUrl="/mfe/mfe-real-estate-overview.js"
-    fallback={<ShadowDocument src="/mfe/portfolio.en.html" />} />
+  <RemoteElement tag="mfe-analytics-overview"
+    scriptUrl="https://estate.evinvest.ltd/mfe/analytics/overview.js" />
   ```
 
 **Producing a microfrontend** (other repos — this app ships no producer SDK). The

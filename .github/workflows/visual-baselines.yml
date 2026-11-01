@@ -17,13 +17,6 @@
 #
 #           Look at the diffs before committing — the artifact is what the branch
 #           renders, not proof that the render is right.
-#
-# The home page cannot render without REA's per-locale portfolio snapshots
-# (`public/mfe/portfolio.<locale>.html`, asserted at render by
-# views/home/ui/portfolio); locally `populate-docs` builds them from a sibling
-# clone, which the runner has not got, so the job builds the same `embeds`
-# package straight from the private flake ref that flake.nix bakes into the
-# image — hence the deploy key, as in release-container.yml.
 name: Visual baselines
 'on':
   pull_request:
@@ -53,29 +46,6 @@ jobs:
         with:
           name: ev-invest
           authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
-      - name: SSH auth for the REA flake
-        shell: bash
-        env:
-          DEPLOY_KEY: ${{ secrets.DEPLOY_KEY_REAL_ESTATE_ALLOCATION }}
-        run: |
-          install -d -m 700 ~/.ssh
-          ssh-keyscan -t rsa,ed25519 github.com >> ~/.ssh/known_hosts 2>/dev/null
-          if [ -z "$DEPLOY_KEY" ]; then
-            echo "::error::DEPLOY_KEY_REAL_ESTATE_ALLOCATION unset — the home page needs REA's portfolio snapshots. Provision: git_ops init-deploy-key EV-Main/real_estate_allocation" >&2
-            exit 1
-          fi
-          printf '%s\n' "$DEPLOY_KEY" > ~/.ssh/real_estate_allocation
-          chmod 600 ~/.ssh/real_estate_allocation
-          printf 'Host github.com\n  User git\n  IdentityFile ~/.ssh/real_estate_allocation\n  IdentitiesOnly yes\n' >> ~/.ssh/config
-      - name: Stage REA portfolio snapshots + bundle
-        shell: bash
-        run: |
-          set -euo pipefail
-          # Same ref flake.nix bakes into the image (`real_estate_allocation`).
-          out="$(nix build --no-link --print-out-paths -L 'git+ssh://git@github.com/EV-Main/real_estate_allocation?ref=refs/heads/main#embeds')"
-          mkdir -p frontend/public/mfe
-          cp -rL --no-preserve=mode "$out"/. frontend/public/mfe/
-          for locale in en ru vi fr de; do test -f "frontend/public/mfe/portfolio.$locale.html"; done
       - name: Gate (typecheck, i18n, css, visual regression)
         # Before the render step: that one overwrites the baselines this gate
         # compares against.

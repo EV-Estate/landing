@@ -1,4 +1,4 @@
-/* Element remotes (e.g. the REA portfolio) mount in light DOM so host tokens
+/* Element remotes (e.g. the analytics overview tile) mount in light DOM so host tokens
    cascade into them — but a remote's bundle injects its own full Tailwind sheet
    into <head>, whose `@layer utilities` would merge with ours and, loading last,
    win (its non-responsive `.grid-cols-1` beat our `lg:grid-cols-3`). Register a
